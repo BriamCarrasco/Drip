@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { users } from "@/drizzle/schema";
+import { clearAttempts, registerFailedAttempt } from "@/lib/rate-limit";
 import authConfig from "@/auth.config";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -19,12 +20,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = credentials?.password;
         if (typeof username !== "string" || typeof password !== "string") return null;
 
+        const key = username.toLowerCase();
+
         const user = db.select().from(users).where(eq(users.username, username)).get();
-        if (!user) return null;
+        if (!user) {
+          registerFailedAttempt(key);
+          return null;
+        }
 
         const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) return null;
+        if (!valid) {
+          registerFailedAttempt(key);
+          return null;
+        }
 
+        clearAttempts(key);
         return { id: String(user.id), username: user.username };
       },
     }),
