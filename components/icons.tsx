@@ -91,6 +91,14 @@ export function ChevronRightIcon({ className, size = 14 }: IconProps) {
   );
 }
 
+export function ChevronLeftIcon({ className, size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} strokeWidth={2} className={className}>
+      <polyline points="15 6 9 12 15 18" />
+    </svg>
+  );
+}
+
 export function CalendarIcon({ className, size = 13 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" {...base} strokeWidth={2} className={className}>
