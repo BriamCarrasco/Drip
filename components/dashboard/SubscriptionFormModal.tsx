@@ -1,15 +1,20 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
+import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { ChevronDownIcon, XIcon } from "@/components/icons";
 import { categorySuggestions } from "@/lib/categories";
+import { knownServices, type KnownService } from "@/lib/known-services";
+import { SubscriptionAvatar } from "@/components/dashboard/SubscriptionAvatar";
+import { formatDate, formatMoney } from "@/lib/format";
 import type { SubscriptionRow } from "@/lib/subscriptions";
+import type { PriceHistoryEntry } from "@/lib/price-history";
 import type { BillingCycle } from "@/drizzle/schema";
 import { useSubscriptionModal } from "@/lib/subscription-modal-context";
 import {
   createSubscriptionAction,
   deleteSubscriptionAction,
   updateSubscriptionAction,
+  getPriceHistoryAction,
   type SubscriptionInput,
 } from "@/app/(dashboard)/suscripciones/actions";
 
@@ -23,23 +28,33 @@ const cycles: { value: BillingCycle; label: string }[] = [
 const CUSTOM_CATEGORY = "__custom__";
 
 export function SubscriptionFormModal() {
-  const { modal, closeModal } = useSubscriptionModal();
+  const { modal, closeModal, defaultCurrency } = useSubscriptionModal();
 
   if (modal.mode === "closed") return null;
 
   const isEdit = modal.mode === "edit";
   const existing = isEdit ? modal.subscription : undefined;
 
-  return <SubscriptionForm key={existing?.id ?? "new"} isEdit={isEdit} existing={existing} onCancel={closeModal} />;
+  return (
+    <SubscriptionForm
+      key={existing?.id ?? "new"}
+      isEdit={isEdit}
+      existing={existing}
+      defaultCurrency={defaultCurrency}
+      onCancel={closeModal}
+    />
+  );
 }
 
 function SubscriptionForm({
   isEdit,
   existing,
+  defaultCurrency,
   onCancel,
 }: {
   isEdit: boolean;
   existing?: SubscriptionRow;
+  defaultCurrency: string;
   onCancel: () => void;
 }) {
   const { closeModal } = useSubscriptionModal();
@@ -49,7 +64,7 @@ function SubscriptionForm({
   const [description, setDescription] = useState(existing?.description ?? "");
   const [amount, setAmount] = useState(existing ? String(existing.amount) : "");
   const [currency, setCurrency] = useState<"CLP" | "USD">(
-    (existing?.currency as "CLP" | "USD") ?? "CLP"
+    (existing?.currency as "CLP" | "USD") ?? (defaultCurrency as "CLP" | "USD") ?? "CLP"
   );
   const [billingCycle, setBillingCycle] = useState<BillingCycle>(
     existing?.billingCycle ?? "monthly"
@@ -68,13 +83,38 @@ function SubscriptionForm({
     existing ? String(existing.notificationDaysBefore) : "3"
   );
   const [appriseUrl, setAppriseUrl] = useState(existing?.appriseUrl ?? "");
+  const [logoUrl, setLogoUrl] = useState(existing?.logoUrl ?? "");
+  const [isTrial, setIsTrial] = useState(existing?.isTrial ?? false);
+  const [priceHistoryEntries, setPriceHistoryEntries] = useState<PriceHistoryEntry[]>([]);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isEdit && existing) {
+      getPriceHistoryAction(existing.id).then(setPriceHistoryEntries);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, existing?.id]);
+
+  function applyKnownService(service: KnownService) {
+    setName(service.name);
+    setLogoUrl(service.logoUrl);
+    if (categorySuggestions.includes(service.category)) {
+      setCategorySelect(service.category);
+      setCustomCategory("");
+    } else {
+      setCategorySelect(CUSTOM_CATEGORY);
+      setCustomCategory(service.category);
+    }
+  }
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    setFormError(null);
 
     const input: SubscriptionInput = {
       name,
       description: description || undefined,
+      logoUrl: logoUrl || undefined,
       amount: Number(amount) || 0,
       currency,
       billingCycle,
@@ -85,15 +125,20 @@ function SubscriptionForm({
       notificationDaysBefore: Number(notificationDaysBefore) || 0,
       appriseUrl: appriseUrl || undefined,
       isActive: existing?.isActive ?? true,
+      isTrial,
     };
 
     startTransition(async () => {
-      if (isEdit && existing) {
-        await updateSubscriptionAction(existing.id, input);
-      } else {
-        await createSubscriptionAction(input);
+      try {
+        if (isEdit && existing) {
+          await updateSubscriptionAction(existing.id, input);
+        } else {
+          await createSubscriptionAction(input);
+        }
+        closeModal();
+      } catch (error) {
+        setFormError(error instanceof Error ? error.message : "No se pudo guardar la suscripción.");
       }
-      closeModal();
     });
   }
 
@@ -117,7 +162,7 @@ function SubscriptionForm({
       <form
         onClick={(event) => event.stopPropagation()}
         onSubmit={handleSubmit}
-        className="flex max-h-[90vh] w-full max-w-[520px] flex-col gap-5 overflow-y-auto rounded-[20px] bg-surface p-7 shadow-2xl"
+        className="flex max-h-[90vh] w-full max-w-[520px] flex-col gap-5 overflow-y-auto rounded-[20px] bg-surface p-5 shadow-2xl sm:p-7"
       >
         <div className="flex items-center justify-between">
           <h2 className="font-heading text-[19px] font-semibold">
@@ -127,6 +172,33 @@ function SubscriptionForm({
             <XIcon />
           </button>
         </div>
+
+        {!isEdit && (
+          <div className="flex flex-col gap-1.5">
+            <span className={labelClass}>
+              Servicios conocidos <span className="font-medium text-placeholder">(opcional)</span>
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {knownServices.map((service) => (
+                <button
+                  key={service.name}
+                  type="button"
+                  onClick={() => applyKnownService(service)}
+                  className="flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1.5 text-[12px] font-medium text-muted-strong hover:border-accent hover:text-foreground"
+                >
+                  <SubscriptionAvatar
+                    name={service.name}
+                    logoUrl={service.logoUrl}
+                    size={16}
+                    rounded="rounded-[4px]"
+                    className="text-[7px]"
+                  />
+                  {service.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <label className="flex flex-col gap-1.5">
           <span className={labelClass}>Nombre</span>
@@ -151,20 +223,36 @@ function SubscriptionForm({
           />
         </label>
 
-        <div className="flex gap-3.5">
+        <label className="flex flex-col gap-1.5">
+          <span className={labelClass}>
+            URL de logo <span className="font-medium text-placeholder">(opcional)</span>
+          </span>
+          <div className="flex items-center gap-3">
+            <SubscriptionAvatar name={name || "?"} logoUrl={logoUrl} size={38} />
+            <input
+              value={logoUrl}
+              onChange={(e) => setLogoUrl(e.target.value)}
+              placeholder="https://ejemplo.com/logo.png"
+              className={`${inputClass} flex-1`}
+            />
+          </div>
+        </label>
+
+        <div className="flex flex-col gap-3.5 sm:flex-row">
           <label className="flex flex-1 flex-col gap-1.5">
             <span className={labelClass}>Monto</span>
             <input
               required
               type="number"
               min="0"
+              step="0.01"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0"
               className={inputClass}
             />
           </label>
-          <label className="flex w-[110px] flex-col gap-1.5">
+          <label className="flex w-full flex-col gap-1.5 sm:w-[110px]">
             <span className={labelClass}>Moneda</span>
             <select
               value={currency}
@@ -179,7 +267,7 @@ function SubscriptionForm({
 
         <div className="flex flex-col gap-1.5">
           <span className={labelClass}>Ciclo de facturación</span>
-          <div className="flex gap-0.5 rounded-[10px] bg-surface-muted p-1">
+          <div className="flex flex-wrap gap-1 rounded-[10px] bg-surface-muted p-1">
             {cycles.map((cycle) => (
               <button
                 key={cycle.value}
@@ -187,8 +275,8 @@ function SubscriptionForm({
                 onClick={() => setBillingCycle(cycle.value)}
                 className={
                   billingCycle === cycle.value
-                    ? "flex-1 rounded-lg bg-accent py-2 text-[13px] font-semibold text-white"
-                    : "flex-1 rounded-lg py-2 text-[13px] font-medium text-muted-strong"
+                    ? "min-w-[70px] flex-1 rounded-lg bg-accent py-2 text-[13px] font-semibold text-white"
+                    : "min-w-[70px] flex-1 rounded-lg py-2 text-[13px] font-medium text-muted-strong"
                 }
               >
                 {cycle.label}
@@ -212,12 +300,26 @@ function SubscriptionForm({
           </label>
         )}
 
-        <div className="flex gap-3.5">
+        <label className="flex items-center gap-2.5 text-[13px] font-medium text-label">
+          <input
+            type="checkbox"
+            checked={isTrial}
+            onChange={(e) => setIsTrial(e.target.checked)}
+            className="h-4 w-4 rounded border-border accent-accent"
+          />
+          Es una prueba gratuita
+        </label>
+
+        <div className="flex flex-col gap-3.5 sm:flex-row">
           <label className="flex flex-1 flex-col gap-1.5">
-            <span className={labelClass}>Próximo cobro</span>
+            <span className={labelClass}>
+              {isTrial ? "Termina la prueba el" : "Próximo cobro"}
+            </span>
             <input
               required
               type="date"
+              min="1970-01-01"
+              max="9999-12-31"
               value={nextBillingDate}
               onChange={(e) => setNextBillingDate(e.target.value)}
               className={inputClass}
@@ -252,7 +354,7 @@ function SubscriptionForm({
           </div>
         </div>
 
-        <div className="flex gap-3.5">
+        <div className="flex flex-col gap-3.5 sm:flex-row">
           <label className="flex flex-1 flex-col gap-1.5">
             <span className={labelClass}>Avisar antes del cobro</span>
             <div className="flex items-center gap-2">
@@ -278,6 +380,29 @@ function SubscriptionForm({
             />
           </label>
         </div>
+
+        {isEdit && priceHistoryEntries.length > 0 && (
+          <div className="flex flex-col gap-1.5 border-t border-border-soft pt-4">
+            <span className={labelClass}>Historial de precios</span>
+            <div className="flex flex-col gap-1">
+              {priceHistoryEntries.map((entry, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between text-[13px] text-muted"
+                >
+                  <span>{formatDate(entry.changedAt.slice(0, 10))}</span>
+                  <span className="font-medium text-foreground">
+                    {formatMoney(entry.amount, entry.currency)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {formError && (
+          <p className="rounded-lg bg-danger/10 px-3.5 py-2.5 text-[13px] text-danger">{formError}</p>
+        )}
 
         <div className="mt-1.5 flex items-center justify-between">
           {isEdit ? (

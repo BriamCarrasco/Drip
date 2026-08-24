@@ -2,13 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogoMark, PlusIcon } from "@/components/icons";
+import {
+  CalendarIcon,
+  HomeIcon,
+  ListIcon,
+  LogoMark,
+  PlusIcon,
+  SettingsIcon,
+} from "@/components/icons";
 import { useSubscriptionModal } from "@/lib/subscription-modal-context";
 
 const navItems = [
-  { href: "/", label: "Inicio" },
-  { href: "/suscripciones", label: "Suscripciones" },
-  { href: "/configuracion", label: "Configuración" },
+  { href: "/", label: "Inicio", icon: HomeIcon },
+  { href: "/suscripciones", label: "Suscripciones", icon: ListIcon },
+  { href: "/calendario", label: "Calendario", icon: CalendarIcon },
+  { href: "/configuracion", label: "Configuración", icon: SettingsIcon },
 ];
 
 export function TopBar({ username }: { username: string }) {
@@ -18,28 +26,30 @@ export function TopBar({ username }: { username: string }) {
   const initials = username.slice(0, 2).toUpperCase();
 
   return (
-    <div className="flex items-center justify-between border-b border-border px-14 py-[22px]">
-      <div className="flex items-center gap-2.5">
+    <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-8 sm:py-4 lg:px-14 lg:py-[22px]">
+      <div className="flex shrink-0 items-center gap-2.5">
         <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-accent">
           <LogoMark />
         </div>
-        <span className="font-heading text-base font-semibold">Suscripciones</span>
+        <span className="hidden font-heading text-base font-semibold sm:inline">Suscripciones</span>
       </div>
 
-      <div className="flex items-center gap-1.5 rounded-xl bg-surface-muted p-1">
+      <div className="flex items-center gap-0.5 rounded-xl bg-surface-muted p-1 sm:gap-1.5">
         {navItems.map((item) => {
           const active = item.href === pathname;
+          const Icon = item.icon;
           return (
             <Link
               key={item.href}
               href={item.href}
               className={
                 active
-                  ? "rounded-[9px] bg-accent px-4 py-2 text-[13px] font-semibold text-white"
-                  : "rounded-[9px] px-4 py-2 text-[13px] font-medium text-muted-strong hover:text-foreground"
+                  ? "flex items-center gap-2 rounded-[9px] bg-accent px-2.5 py-2 text-[13px] font-semibold text-white sm:px-4"
+                  : "flex items-center gap-2 rounded-[9px] px-2.5 py-2 text-[13px] font-medium text-muted-strong hover:text-foreground sm:px-4"
               }
             >
-              {item.label}
+              <Icon size={16} />
+              <span className="hidden sm:inline">{item.label}</span>
             </Link>
           );
         })}
@@ -48,13 +58,13 @@ export function TopBar({ username }: { username: string }) {
       {showNewButton ? (
         <button
           onClick={openCreateModal}
-          className="flex items-center gap-2 rounded-[10px] bg-accent px-4 py-2.5 text-[13px] font-semibold text-white hover:opacity-90"
+          className="flex shrink-0 items-center gap-2 rounded-[10px] bg-accent px-3 py-2.5 text-[13px] font-semibold text-white hover:opacity-90 sm:px-4"
         >
           <PlusIcon size={15} />
-          Nueva suscripción
+          <span className="hidden sm:inline">Nueva suscripción</span>
         </button>
       ) : (
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-tint text-[13px] font-semibold text-accent">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-tint text-[13px] font-semibold text-accent">
           {initials}
         </div>
       )}

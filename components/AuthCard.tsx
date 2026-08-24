@@ -23,7 +23,7 @@ export function AuthCard({ title, subtitle, children, footer }: AuthCardProps) {
           <p className="text-sm text-muted">{subtitle}</p>
         </div>
 
-        <div className="flex flex-col gap-4.5 rounded-2xl border border-border bg-surface p-8">
+        <div className="flex flex-col gap-4.5 rounded-2xl border border-border bg-surface p-6 sm:p-8">
           {children}
         </div>
 

@@ -10,6 +10,7 @@ type ModalState =
 
 type SubscriptionModalContextValue = {
   modal: ModalState;
+  defaultCurrency: string;
   openCreateModal: () => void;
   openEditModal: (subscription: SubscriptionRow) => void;
   closeModal: () => void;
@@ -17,17 +18,24 @@ type SubscriptionModalContextValue = {
 
 const SubscriptionModalContext = createContext<SubscriptionModalContextValue | null>(null);
 
-export function SubscriptionModalProvider({ children }: { children: React.ReactNode }) {
+export function SubscriptionModalProvider({
+  children,
+  defaultCurrency,
+}: {
+  children: React.ReactNode;
+  defaultCurrency: string;
+}) {
   const [modal, setModal] = useState<ModalState>({ mode: "closed" });
 
   const value = useMemo<SubscriptionModalContextValue>(
     () => ({
       modal,
+      defaultCurrency,
       openCreateModal: () => setModal({ mode: "create" }),
       openEditModal: (subscription) => setModal({ mode: "edit", subscription }),
       closeModal: () => setModal({ mode: "closed" }),
     }),
-    [modal]
+    [modal, defaultCurrency]
   );
 
   return (

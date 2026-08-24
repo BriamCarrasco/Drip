@@ -1,11 +1,13 @@
 import { auth } from "@/auth";
 import { getSubscriptionsForUser } from "@/lib/subscriptions";
-import { monthlyEquivalent } from "@/lib/subscription-calculations";
+import { getSettingsForUser } from "@/lib/settings";
+import { convertToCurrency, getEffectiveUsdClpRate } from "@/lib/exchange-rate";
+import { monthlyTotalsByCurrency } from "@/lib/subscription-calculations";
 import { StatTile } from "@/components/dashboard/StatTile";
 import { SubscriptionCard } from "@/components/dashboard/SubscriptionCard";
 import { EmptyHomeState } from "@/components/dashboard/EmptyHomeState";
 import { CalendarIcon, TrendingUpIcon, WalletIcon } from "@/components/icons";
-import { formatCLP, formatDate } from "@/lib/format";
+import { formatMoney, formatDate } from "@/lib/format";
 
 export default async function HomePage() {
   const session = await auth();
@@ -14,29 +16,60 @@ export default async function HomePage() {
 
   if (subscriptions.length === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center px-14 py-9">
+      <div className="flex flex-1 items-center justify-center px-4 py-9 sm:px-8 lg:px-14">
         <EmptyHomeState />
       </div>
     );
   }
 
+  const settings = getSettingsForUser(userId);
+  const { defaultCurrency } = settings;
   const active = subscriptions.filter((sub) => sub.isActive);
-  const monthlyTotal = active.reduce((sum, sub) => sum + monthlyEquivalent(sub), 0);
-  const yearlyTotal = monthlyTotal * 12;
+  const monthlyTotals = monthlyTotalsByCurrency(active);
+  const primaryTotal = monthlyTotals.find((t) => t.currency === defaultCurrency) ?? monthlyTotals[0];
+  const secondaryTotals = monthlyTotals.filter((t) => t !== primaryTotal);
+
+  const usdClpRate = getEffectiveUsdClpRate(settings);
+  const canConvert = secondaryTotals.length > 0 && usdClpRate !== null;
+  const combinedMonthlyTotal = primaryTotal
+    ? primaryTotal.total +
+      (canConvert
+        ? secondaryTotals.reduce(
+            (sum, t) => sum + convertToCurrency(t.total, t.currency, primaryTotal.currency, usdClpRate!),
+            0
+          )
+        : 0)
+    : 0;
+
+  const monthlyValue = primaryTotal ? formatMoney(combinedMonthlyTotal, primaryTotal.currency) : "—";
+  const yearlyValue = primaryTotal ? formatMoney(combinedMonthlyTotal * 12, primaryTotal.currency) : "—";
+  const monthlySecondary =
+    !canConvert && secondaryTotals.length > 0
+      ? secondaryTotals.map(({ currency, total }) => formatMoney(total, currency)).join(" + ")
+      : undefined;
+  const yearlySecondary =
+    !canConvert && secondaryTotals.length > 0
+      ? secondaryTotals.map(({ currency, total }) => formatMoney(total * 12, currency)).join(" + ")
+      : undefined;
+  const monthlyLabel = canConvert ? "Gasto mensual (convertido)" : "Gasto mensual";
+  const yearlyLabel = canConvert ? "Gasto anual proyectado (convertido)" : "Gasto anual proyectado";
+
   const next = active[0];
 
   return (
-    <div className="flex flex-col gap-7 px-14 py-9">
-      <div className="flex gap-5">
+    <div className="flex flex-col gap-6 px-4 py-6 sm:gap-7 sm:px-8 sm:py-9 lg:px-14">
+      <div className="flex flex-col gap-4 sm:flex-row sm:gap-5">
         <StatTile
           icon={<WalletIcon />}
-          value={`$${formatCLP(monthlyTotal)}`}
-          label="Gasto mensual"
+          value={monthlyValue}
+          secondaryValue={monthlySecondary}
+          label={monthlyLabel}
         />
         <StatTile
           icon={<TrendingUpIcon />}
-          value={`$${formatCLP(yearlyTotal)}`}
-          label="Gasto anual proyectado"
+          value={yearlyValue}
+          secondaryValue={yearlySecondary}
+          label={yearlyLabel}
         />
         <StatTile
           icon={<CalendarIcon size={18} />}
@@ -55,7 +88,7 @@ export default async function HomePage() {
           Todavía no tienes suscripciones activas.
         </p>
       ) : (
-        <div className="grid grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
           {active.map((sub) => (
             <SubscriptionCard key={sub.id} subscription={sub} />
           ))}
