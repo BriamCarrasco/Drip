@@ -1,0 +1,1 @@
+ALTER TABLE `subscriptions` ADD `logo_url` text;
