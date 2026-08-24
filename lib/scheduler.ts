@@ -1,14 +1,22 @@
 import { getAllActiveSubscriptions } from "@/lib/subscriptions";
-import { getSettingsForUser } from "@/lib/settings";
+import { getSettingsForUser, isAutoExchangeRateEnabledForAnyUser } from "@/lib/settings";
 import { getDueSubscriptions } from "@/lib/scheduler-logic";
 import { sendNotification } from "@/lib/apprise";
-import { formatCLP, formatDate } from "@/lib/format";
+import { refreshUsdClpRate } from "@/lib/exchange-rate";
+import { formatMoney, formatDate } from "@/lib/format";
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
 export async function runDailyCheck(): Promise<{ checked: number; notified: number }> {
+  if (isAutoExchangeRateEnabledForAnyUser()) {
+    const rate = await refreshUsdClpRate();
+    if (rate === null) {
+      console.warn("[scheduler] no se pudo actualizar el tipo de cambio USD/CLP");
+    }
+  }
+
   const subscriptions = getAllActiveSubscriptions();
   const due = getDueSubscriptions(subscriptions, todayIso());
 
@@ -21,10 +29,14 @@ export async function runDailyCheck(): Promise<{ checked: number; notified: numb
       continue;
     }
 
+    const body = sub.isTrial
+      ? `Tu prueba gratuita de ${sub.name} termina el ${formatDate(sub.nextBillingDate)} y se cobrará ${formatMoney(sub.amount, sub.currency)}.`
+      : `${sub.name} se cobra el ${formatDate(sub.nextBillingDate)} (${formatMoney(sub.amount, sub.currency)}).`;
+
     const ok = await sendNotification({
       url: appriseUrl,
       title: `Suscripciones — ${sub.name}`,
-      body: `${sub.name} se cobra el ${formatDate(sub.nextBillingDate)} ($${formatCLP(sub.amount)} ${sub.currency}).`,
+      body,
     });
 
     if (ok) notified += 1;

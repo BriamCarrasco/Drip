@@ -7,6 +7,7 @@ export type SubscriptionRow = {
   userId: number;
   name: string;
   description: string | null;
+  logoUrl: string | null;
   amount: number;
   currency: string;
   billingCycle: BillingCycle;
@@ -16,6 +17,7 @@ export type SubscriptionRow = {
   notificationDaysBefore: number;
   appriseUrl: string | null;
   isActive: boolean;
+  isTrial: boolean;
 };
 
 export function getSubscriptionsForUser(userId: number): SubscriptionRow[] {
