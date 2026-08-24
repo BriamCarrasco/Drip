@@ -3,6 +3,7 @@ import type { NextAuthConfig } from "next-auth";
 const publicPaths = ["/login", "/register"];
 
 export default {
+  trustHost: true,
   pages: { signIn: "/login" },
   session: { strategy: "jwt" },
   providers: [],
