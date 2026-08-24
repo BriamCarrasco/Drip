@@ -1,0 +1,54 @@
+import { db } from "@/lib/db";
+import { exchangeRates } from "@/drizzle/schema";
+import type { Settings } from "@/lib/settings";
+
+const USD_CLP_PAIR = "USD_CLP";
+const FETCH_URL = "https://mindicador.cl/api/dolar";
+
+export function getStoredUsdClpRate(): { rate: number; updatedAt: string } | null {
+  const row = db.select().from(exchangeRates).get();
+  if (!row || row.pair !== USD_CLP_PAIR) return null;
+  return { rate: row.rate, updatedAt: row.updatedAt };
+}
+
+export async function fetchUsdClpRate(): Promise<number | null> {
+  try {
+    const response = await fetch(FETCH_URL, { signal: AbortSignal.timeout(8000) });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const rate = data?.serie?.[0]?.valor;
+    return typeof rate === "number" && rate > 0 ? rate : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function refreshUsdClpRate(): Promise<number | null> {
+  const rate = await fetchUsdClpRate();
+  if (rate === null) return null;
+
+  db.insert(exchangeRates)
+    .values({ pair: USD_CLP_PAIR, rate, updatedAt: new Date().toISOString() })
+    .onConflictDoUpdate({
+      target: exchangeRates.pair,
+      set: { rate, updatedAt: new Date().toISOString() },
+    })
+    .run();
+
+  return rate;
+}
+
+export function getEffectiveUsdClpRate(settings: Settings): number | null {
+  if (settings.exchangeRateMode === "auto") {
+    const stored = getStoredUsdClpRate();
+    if (stored) return stored.rate;
+  }
+  return settings.manualExchangeRate;
+}
+
+export function convertToCurrency(amount: number, from: string, to: string, usdClpRate: number): number {
+  if (from === to) return amount;
+  if (from === "USD" && to === "CLP") return amount * usdClpRate;
+  if (from === "CLP" && to === "USD") return amount / usdClpRate;
+  return amount;
+}
