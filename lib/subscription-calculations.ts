@@ -18,3 +18,18 @@ export function monthlyEquivalent(input: {
     }
   }
 }
+
+export function monthlyTotalsByCurrency(
+  subs: {
+    amount: number;
+    currency: string;
+    billingCycle: BillingCycle;
+    customIntervalDays?: number | null;
+  }[]
+): { currency: string; total: number }[] {
+  const totals = new Map<string, number>();
+  for (const sub of subs) {
+    totals.set(sub.currency, (totals.get(sub.currency) ?? 0) + monthlyEquivalent(sub));
+  }
+  return Array.from(totals, ([currency, total]) => ({ currency, total }));
+}
