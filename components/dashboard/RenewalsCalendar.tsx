@@ -97,84 +97,86 @@ export function RenewalsCalendar({ subscriptions }: { subscriptions: Subscriptio
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
-        <div
-          key={`${cursorYear}-${cursorMonth}`}
-          className={`min-w-[560px] ${
-            direction === "next" ? "animate-slide-in-right" : direction === "prev" ? "animate-slide-in-left" : ""
-          }`}
-        >
-          <div className="grid grid-cols-7 divide-x divide-border-soft border-b border-border-soft">
-            {weekdayLabels.map((label) => (
-              <div
-                key={label}
-                className="px-2 py-2.5 text-center text-xs font-semibold tracking-wide text-muted uppercase"
-              >
-                {label}
-              </div>
-            ))}
-          </div>
-          <div className="divide-y divide-border-soft">
-            {weeks.map((week, weekIndex) => (
-              <div key={weekIndex} className="grid grid-cols-7 divide-x divide-border-soft">
-                {week.map((date, dayIndex) => {
-                  const iso = date ? toIso(date) : null;
-                  const items = iso ? (occurrencesByDay.get(iso) ?? []) : [];
-                  const isToday = iso === todayIso;
+        <div className="min-w-[560px] overflow-hidden">
+          <div
+            key={`${cursorYear}-${cursorMonth}`}
+            className={
+              direction === "next" ? "animate-slide-in-right" : direction === "prev" ? "animate-slide-in-left" : ""
+            }
+          >
+            <div className="grid grid-cols-7 divide-x divide-border-soft border-b border-border-soft">
+              {weekdayLabels.map((label) => (
+                <div
+                  key={label}
+                  className="px-2 py-2.5 text-center text-xs font-semibold tracking-wide text-muted uppercase"
+                >
+                  {label}
+                </div>
+              ))}
+            </div>
+            <div className="divide-y divide-border-soft">
+              {weeks.map((week, weekIndex) => (
+                <div key={weekIndex} className="grid grid-cols-7 divide-x divide-border-soft">
+                  {week.map((date, dayIndex) => {
+                    const iso = date ? toIso(date) : null;
+                    const items = iso ? (occurrencesByDay.get(iso) ?? []) : [];
+                    const isToday = iso === todayIso;
 
-                  return (
-                    <div
-                      key={dayIndex}
-                      className={`flex min-h-[92px] flex-col gap-1 p-1.5 sm:min-h-[110px] sm:p-2 ${
-                        date ? "" : "bg-surface-muted/40"
-                      }`}
-                    >
-                      {date && (
-                        <span
-                          className={
-                            isToday
-                              ? "flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[12px] font-semibold text-white"
-                              : "text-[12px] font-semibold text-muted-strong"
-                          }
-                        >
-                          {date.getDate()}
-                        </span>
-                      )}
-                      <div className="flex flex-col gap-1">
-                        {items.slice(0, 3).map((sub) => {
-                          const avatar = getAvatarStyle(sub.name);
-                          const label = `${sub.name} · ${formatMoney(sub.amount, sub.currency)}`;
-
-                          return (
-                            <button
-                              key={sub.id}
-                              type="button"
-                              onClick={() => openEditModal(sub)}
-                              title={label}
-                              className="flex items-center gap-1 truncate rounded-md px-1.5 py-1 text-left text-[11px] font-semibold"
-                              style={{ background: avatar.bg, color: avatar.color }}
-                            >
-                              <SubscriptionAvatar
-                                name={sub.name}
-                                logoUrl={sub.logoUrl}
-                                size={14}
-                                rounded="rounded-[3px]"
-                                className="text-[8px]"
-                              />
-                              <span className="truncate">{sub.name}</span>
-                            </button>
-                          );
-                        })}
-                        {items.length > 3 && (
-                          <span className="text-[11px] font-medium text-muted">
-                            +{items.length - 3} más
+                    return (
+                      <div
+                        key={dayIndex}
+                        className={`flex min-h-[92px] flex-col gap-1 p-1.5 sm:min-h-[110px] sm:p-2 ${
+                          date ? "" : "bg-surface-muted/40"
+                        }`}
+                      >
+                        {date && (
+                          <span
+                            className={
+                              isToday
+                                ? "flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[12px] font-semibold text-white"
+                                : "text-[12px] font-semibold text-muted-strong"
+                            }
+                          >
+                            {date.getDate()}
                           </span>
                         )}
+                        <div className="flex flex-col gap-1">
+                          {items.slice(0, 3).map((sub) => {
+                            const avatar = getAvatarStyle(sub.name);
+                            const label = `${sub.name} · ${formatMoney(sub.amount, sub.currency)}`;
+
+                            return (
+                              <button
+                                key={sub.id}
+                                type="button"
+                                onClick={() => openEditModal(sub)}
+                                title={label}
+                                className="flex items-center gap-1 truncate rounded-md px-1.5 py-1 text-left text-[11px] font-semibold"
+                                style={{ background: avatar.bg, color: avatar.color }}
+                              >
+                                <SubscriptionAvatar
+                                  name={sub.name}
+                                  logoUrl={sub.logoUrl}
+                                  size={14}
+                                  rounded="rounded-[3px]"
+                                  className="text-[8px]"
+                                />
+                                <span className="truncate">{sub.name}</span>
+                              </button>
+                            );
+                          })}
+                          {items.length > 3 && (
+                            <span className="text-[11px] font-medium text-muted">
+                              +{items.length - 3} más
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
