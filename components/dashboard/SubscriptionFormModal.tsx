@@ -6,15 +6,17 @@ import { categorySuggestions } from "@/lib/categories";
 import { knownServices, type KnownService } from "@/lib/known-services";
 import { SubscriptionAvatar } from "@/components/dashboard/SubscriptionAvatar";
 import { formatDate, formatMoney } from "@/lib/format";
+import { estimateTotalSpent } from "@/lib/subscription-calculations";
 import type { SubscriptionRow } from "@/lib/subscriptions";
 import type { PriceHistoryEntry } from "@/lib/price-history";
+import type { StatusHistoryEntry } from "@/lib/status-history";
 import type { BillingCycle } from "@/drizzle/schema";
 import { useSubscriptionModal } from "@/lib/subscription-modal-context";
 import {
   createSubscriptionAction,
   deleteSubscriptionAction,
   updateSubscriptionAction,
-  getPriceHistoryAction,
+  getSubscriptionHistoryAction,
   type SubscriptionInput,
 } from "@/app/(dashboard)/suscripciones/actions";
 
@@ -85,12 +87,17 @@ function SubscriptionForm({
   const [appriseUrl, setAppriseUrl] = useState(existing?.appriseUrl ?? "");
   const [logoUrl, setLogoUrl] = useState(existing?.logoUrl ?? "");
   const [isTrial, setIsTrial] = useState(existing?.isTrial ?? false);
+  const [splitCount, setSplitCount] = useState(existing ? String(existing.splitCount) : "1");
   const [priceHistoryEntries, setPriceHistoryEntries] = useState<PriceHistoryEntry[]>([]);
+  const [statusHistoryEntries, setStatusHistoryEntries] = useState<StatusHistoryEntry[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isEdit && existing) {
-      getPriceHistoryAction(existing.id).then(setPriceHistoryEntries);
+      getSubscriptionHistoryAction(existing.id).then(({ prices, statuses }) => {
+        setPriceHistoryEntries(prices);
+        setStatusHistoryEntries(statuses);
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEdit, existing?.id]);
@@ -126,6 +133,7 @@ function SubscriptionForm({
       appriseUrl: appriseUrl || undefined,
       isActive: existing?.isActive ?? true,
       isTrial,
+      splitCount: Number(splitCount) || 1,
     };
 
     startTransition(async () => {
@@ -153,6 +161,16 @@ function SubscriptionForm({
   const inputClass =
     "rounded-[10px] border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-placeholder outline-none focus:border-accent";
   const labelClass = "text-[13px] font-semibold text-label";
+  const totalSpent = estimateTotalSpent(
+    {
+      billingCycle,
+      customIntervalDays: Number(customIntervalDays) || null,
+      nextBillingDate,
+      splitCount: Number(splitCount) || 1,
+    },
+    priceHistoryEntries,
+    statusHistoryEntries
+  );
 
   return (
     <div
@@ -263,7 +281,25 @@ function SubscriptionForm({
               <option value="USD">USD</option>
             </select>
           </label>
+          <label className="flex w-full flex-col gap-1.5 sm:w-[110px]">
+            <span className={labelClass}>Compartida entre</span>
+            <input
+              type="number"
+              min="1"
+              max="20"
+              value={splitCount}
+              onChange={(e) => setSplitCount(e.target.value)}
+              className={inputClass}
+            />
+          </label>
         </div>
+
+        {Number(splitCount) > 1 && Number(amount) > 0 && (
+          <p className="-mt-2.5 text-[12.5px] text-muted">
+            Tu parte: {formatMoney(Number(amount) / Number(splitCount), currency)} de{" "}
+            {formatMoney(Number(amount), currency)} entre {splitCount} personas.
+          </p>
+        )}
 
         <div className="flex flex-col gap-1.5">
           <span className={labelClass}>Ciclo de facturación</span>
@@ -382,20 +418,34 @@ function SubscriptionForm({
         </div>
 
         {isEdit && priceHistoryEntries.length > 0 && (
-          <div className="flex flex-col gap-1.5 border-t border-border-soft pt-4">
-            <span className={labelClass}>Historial de precios</span>
-            <div className="flex flex-col gap-1">
-              {priceHistoryEntries.map((entry, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between text-[13px] text-muted"
-                >
-                  <span>{formatDate(entry.changedAt.slice(0, 10))}</span>
-                  <span className="font-medium text-foreground">
-                    {formatMoney(entry.amount, entry.currency)}
-                  </span>
+          <div className="flex flex-col gap-3 border-t border-border-soft pt-4">
+            {totalSpent > 0 && (
+              <div className="flex items-center justify-between rounded-[10px] bg-surface-muted p-3.5">
+                <div>
+                  <span className="text-[13px] font-medium text-label">Total pagado</span>
+                  <p className="text-[11.5px] text-muted">Cobros completos desde que la registraste en la app</p>
                 </div>
-              ))}
+                <span className="font-heading text-[17px] font-semibold">
+                  {formatMoney(totalSpent, currency)}
+                </span>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-1.5">
+              <span className={labelClass}>Historial de precios</span>
+              <div className="flex flex-col gap-1">
+                {priceHistoryEntries.map((entry, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between text-[13px] text-muted"
+                  >
+                    <span>{formatDate(entry.changedAt.slice(0, 10))}</span>
+                    <span className="font-medium text-foreground">
+                      {formatMoney(entry.amount, entry.currency)}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}

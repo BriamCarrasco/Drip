@@ -138,6 +138,14 @@ export function SearchIcon({ className, size = 15 }: IconProps) {
   );
 }
 
+export function CheckIcon({ className, size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} strokeWidth={2.25} className={className}>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
 export function PencilIcon({ className, size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" {...base} className={className}>
@@ -155,6 +163,17 @@ export function TrashIcon({ className, size = 16 }: IconProps) {
       <path d="M10 11v6" />
       <path d="M14 11v6" />
       <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
+  );
+}
+
+export function BarChartIcon({ className, size = 18 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" {...base} className={className}>
+      <line x1="4" y1="20" x2="20" y2="20" />
+      <rect x="5" y="13" width="3" height="7" />
+      <rect x="10.5" y="8" width="3" height="12" />
+      <rect x="16" y="4" width="3" height="16" />
     </svg>
   );
 }

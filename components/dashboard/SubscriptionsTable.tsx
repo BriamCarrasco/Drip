@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { PencilIcon, SearchIcon, TrashIcon } from "@/components/icons";
+import { CheckIcon, ChevronDownIcon, PencilIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { formatMoney, formatDate } from "@/lib/format";
 import { categorySuggestions } from "@/lib/categories";
 import { SubscriptionAvatar } from "@/components/dashboard/SubscriptionAvatar";
@@ -10,6 +10,7 @@ import type { BillingCycle } from "@/drizzle/schema";
 import { useSubscriptionModal } from "@/lib/subscription-modal-context";
 import {
   deleteSubscriptionAction,
+  markAsPaidAction,
   toggleSubscriptionActiveAction,
 } from "@/app/(dashboard)/suscripciones/actions";
 
@@ -20,10 +21,20 @@ const cycleLabels: Record<BillingCycle, string> = {
   custom_days: "Personalizado",
 };
 
+type SortKey = "nextBillingDate" | "name" | "amount";
+
+const sortOptions: { value: SortKey; label: string }[] = [
+  { value: "nextBillingDate", label: "Próximo cobro" },
+  { value: "name", label: "Nombre" },
+  { value: "amount", label: "Monto" },
+];
+
 export function SubscriptionsTable({ subscriptions }: { subscriptions: SubscriptionRow[] }) {
   const { openEditModal } = useSubscriptionModal();
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("nextBillingDate");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [isPending, startTransition] = useTransition();
 
   const categories = useMemo(() => {
@@ -32,10 +43,18 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
   }, [subscriptions]);
 
   const filtered = useMemo(() => {
-    return subscriptions
+    const result = subscriptions
       .filter((sub) => (activeCategory ? sub.category === activeCategory : true))
       .filter((sub) => sub.name.toLowerCase().includes(search.toLowerCase()));
-  }, [subscriptions, activeCategory, search]);
+
+    const sorted = [...result].sort((a, b) => {
+      if (sortKey === "amount") return a.amount - b.amount;
+      if (sortKey === "name") return a.name.localeCompare(b.name, "es");
+      return a.nextBillingDate.localeCompare(b.nextBillingDate);
+    });
+
+    return sortDirection === "asc" ? sorted : sorted.reverse();
+  }, [subscriptions, activeCategory, search, sortKey, sortDirection]);
 
   function handleDelete(id: number) {
     startTransition(() => {
@@ -46,6 +65,12 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
   function handleToggleActive(id: number) {
     startTransition(() => {
       toggleSubscriptionActiveAction(id);
+    });
+  }
+
+  function handleMarkAsPaid(id: number) {
+    startTransition(() => {
+      markAsPaidAction(id);
     });
   }
 
@@ -78,14 +103,40 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
           ))}
         </div>
 
-        <div className="flex w-full items-center gap-2 rounded-[10px] border border-border bg-surface px-3.5 py-2.5 sm:w-60">
-          <SearchIcon className="shrink-0 text-placeholder" />
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Buscar suscripción..."
-            className="w-full text-[13.5px] outline-none placeholder:text-placeholder"
-          />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex w-full items-center gap-2 rounded-[10px] border border-border bg-surface px-3.5 py-2.5 sm:w-60">
+            <SearchIcon className="shrink-0 text-placeholder" />
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar suscripción..."
+              className="w-full text-[13.5px] outline-none placeholder:text-placeholder"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <select
+              value={sortKey}
+              onChange={(event) => setSortKey(event.target.value as SortKey)}
+              aria-label="Ordenar por"
+              className="rounded-[10px] border border-border bg-surface px-3 py-2.5 text-[13px] text-foreground outline-none focus:border-accent"
+            >
+              {sortOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setSortDirection((d) => (d === "asc" ? "desc" : "asc"))}
+              aria-label={sortDirection === "asc" ? "Orden ascendente" : "Orden descendente"}
+              title={sortDirection === "asc" ? "Ascendente" : "Descendente"}
+              className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] border border-border text-muted-strong hover:text-foreground"
+            >
+              <ChevronDownIcon className={sortDirection === "desc" ? "rotate-180" : ""} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -97,7 +148,7 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
           <span className="flex-[1.2]">Próximo cobro</span>
           <span className="flex-1 text-right">Monto</span>
           <span className="flex-1 text-center">Estado</span>
-          <span className="w-[72px] text-right">Acciones</span>
+          <span className="w-[96px] text-right">Acciones</span>
         </div>
 
         {filtered.length === 0 && (
@@ -130,6 +181,15 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
           );
           const actions = (
             <>
+              <button
+                onClick={() => handleMarkAsPaid(sub.id)}
+                disabled={isPending}
+                aria-label={`Marcar ${sub.name} como pagada`}
+                title="Marcar como pagada"
+                className="text-muted hover:text-success disabled:opacity-50"
+              >
+                <CheckIcon />
+              </button>
               <button
                 onClick={() => openEditModal(sub)}
                 aria-label={`Editar ${sub.name}`}
@@ -168,7 +228,9 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
                       <p className="text-sm font-semibold">{sub.name}</p>
                       {trialBadge}
                     </div>
-                    <p className="text-[12.5px] text-foreground/60">{sub.category}</p>
+                    <p className="truncate text-[12.5px] text-foreground/60">
+                      {sub.description ? `${sub.category} · ${sub.description}` : sub.category}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">{actions}</div>
@@ -177,8 +239,15 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
                 <span>
                   {cycleLabels[sub.billingCycle]} · {formatDate(sub.nextBillingDate)}
                 </span>
-                <span className="font-semibold text-foreground">
-                  {formatMoney(sub.amount, sub.currency)}
+                <span className="text-right">
+                  <span className="block font-semibold text-foreground">
+                    {formatMoney(sub.amount, sub.currency)}
+                  </span>
+                  {sub.splitCount > 1 && (
+                    <span className="block text-[11px] text-muted">
+                      Tu parte: {formatMoney(sub.amount / sub.splitCount, sub.currency)}
+                    </span>
+                  )}
                 </span>
               </div>
               <div>{statusPill}</div>
@@ -196,13 +265,20 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
                   : "hidden items-center border-b border-border-soft px-6 py-[18px] md:flex"
               }
             >
-              <span className="flex flex-[2.4] items-center gap-3.5">
+              <span className="flex flex-[2.4] min-w-0 items-center gap-3.5">
                 <SubscriptionAvatar name={sub.name} logoUrl={sub.logoUrl} size={36} rounded="rounded-[10px]" />
-                <span className="flex items-center gap-1.5">
-                  <span className="text-sm font-semibold">{sub.name}</span>
-                  {sub.isTrial && (
-                    <span className="rounded-full bg-accent-tint px-2 py-0.5 text-[10px] font-semibold text-accent">
-                      Prueba
+                <span className="min-w-0">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-sm font-semibold">{sub.name}</span>
+                    {sub.isTrial && (
+                      <span className="rounded-full bg-accent-tint px-2 py-0.5 text-[10px] font-semibold text-accent">
+                        Prueba
+                      </span>
+                    )}
+                  </span>
+                  {sub.description && (
+                    <span className="block truncate text-[12px] text-foreground/60">
+                      {sub.description}
                     </span>
                   )}
                 </span>
@@ -214,8 +290,15 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
               <span className="flex-[1.2] text-[13.5px] text-foreground/70">
                 {formatDate(sub.nextBillingDate)}
               </span>
-              <span className="flex-1 text-right text-sm font-semibold">
-                {formatMoney(sub.amount, sub.currency)}
+              <span className="flex-1 text-right">
+                <span className="block text-sm font-semibold">
+                  {formatMoney(sub.amount, sub.currency)}
+                </span>
+                {sub.splitCount > 1 && (
+                  <span className="block text-[11px] text-muted">
+                    Tu parte: {formatMoney(sub.amount / sub.splitCount, sub.currency)}
+                  </span>
+                )}
               </span>
               <span className="flex-1 text-center">
                 <button
@@ -232,7 +315,16 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
                   {sub.isActive ? "Activa" : "Inactiva"}
                 </button>
               </span>
-              <span className="flex w-[72px] items-center justify-end gap-3">
+              <span className="flex w-[96px] items-center justify-end gap-3">
+                <button
+                  onClick={() => handleMarkAsPaid(sub.id)}
+                  disabled={isPending}
+                  aria-label={`Marcar ${sub.name} como pagada`}
+                  title="Marcar como pagada"
+                  className="text-muted hover:text-success disabled:opacity-50"
+                >
+                  <CheckIcon />
+                </button>
                 <button
                   onClick={() => openEditModal(sub)}
                   aria-label={`Editar ${sub.name}`}

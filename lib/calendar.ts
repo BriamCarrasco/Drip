@@ -1,6 +1,6 @@
 import type { BillingCycle } from "@/drizzle/schema";
 
-function advanceDate(date: Date, cycle: BillingCycle, customIntervalDays?: number | null): Date {
+export function advanceDate(date: Date, cycle: BillingCycle, customIntervalDays?: number | null): Date {
   const next = new Date(date);
   switch (cycle) {
     case "weekly":
@@ -16,6 +16,26 @@ function advanceDate(date: Date, cycle: BillingCycle, customIntervalDays?: numbe
       const days = customIntervalDays && customIntervalDays > 0 ? customIntervalDays : 30;
       next.setDate(next.getDate() + days);
       return next;
+    }
+  }
+}
+
+export function subtractDate(date: Date, cycle: BillingCycle, customIntervalDays?: number | null): Date {
+  const prev = new Date(date);
+  switch (cycle) {
+    case "weekly":
+      prev.setDate(prev.getDate() - 7);
+      return prev;
+    case "monthly":
+      prev.setMonth(prev.getMonth() - 1);
+      return prev;
+    case "yearly":
+      prev.setFullYear(prev.getFullYear() - 1);
+      return prev;
+    case "custom_days": {
+      const days = customIntervalDays && customIntervalDays > 0 ? customIntervalDays : 30;
+      prev.setDate(prev.getDate() - days);
+      return prev;
     }
   }
 }

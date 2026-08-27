@@ -21,6 +21,13 @@ export function getPriceHistory(subscriptionId: number): PriceHistoryEntry[] {
     .all();
 }
 
-export function recordPriceChange(subscriptionId: number, amount: number, currency: string): void {
-  db.insert(priceHistory).values({ subscriptionId, amount, currency }).run();
+export function recordPriceChange(
+  subscriptionId: number,
+  amount: number,
+  currency: string,
+  changedAt?: string
+): void {
+  db.insert(priceHistory)
+    .values({ subscriptionId, amount, currency, changedAt: changedAt ?? new Date().toISOString() })
+    .run();
 }

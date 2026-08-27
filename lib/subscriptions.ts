@@ -18,6 +18,8 @@ export type SubscriptionRow = {
   appriseUrl: string | null;
   isActive: boolean;
   isTrial: boolean;
+  splitCount: number;
+  lastNotifiedFor: string | null;
 };
 
 export function getSubscriptionsForUser(userId: number): SubscriptionRow[] {

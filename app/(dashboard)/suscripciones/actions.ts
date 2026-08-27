@@ -7,6 +7,8 @@ import { db } from "@/lib/db";
 import { subscriptions } from "@/drizzle/schema";
 import { auth } from "@/auth";
 import { getPriceHistory, recordPriceChange, type PriceHistoryEntry } from "@/lib/price-history";
+import { getStatusHistory, recordStatusChange, type StatusHistoryEntry } from "@/lib/status-history";
+import { advanceDate } from "@/lib/calendar";
 
 const subscriptionInputSchema = z.object({
   name: z.string().min(1),
@@ -28,6 +30,7 @@ const subscriptionInputSchema = z.object({
   appriseUrl: z.string().optional(),
   isActive: z.boolean(),
   isTrial: z.boolean(),
+  splitCount: z.number().int().min(1).max(20),
 });
 
 export type SubscriptionInput = z.infer<typeof subscriptionInputSchema>;
@@ -63,6 +66,7 @@ export async function createSubscriptionAction(input: SubscriptionInput) {
     .get();
 
   recordPriceChange(created.id, data.amount, data.currency);
+  recordStatusChange(created.id, data.isActive);
   revalidateSubscriptionPaths();
 }
 
@@ -71,7 +75,11 @@ export async function updateSubscriptionAction(id: number, input: SubscriptionIn
   const data = parseSubscriptionInput(input);
 
   const current = db
-    .select({ amount: subscriptions.amount, currency: subscriptions.currency })
+    .select({
+      amount: subscriptions.amount,
+      currency: subscriptions.currency,
+      isActive: subscriptions.isActive,
+    })
     .from(subscriptions)
     .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId)))
     .get();
@@ -83,6 +91,10 @@ export async function updateSubscriptionAction(id: number, input: SubscriptionIn
 
   if (current && (current.amount !== data.amount || current.currency !== data.currency)) {
     recordPriceChange(id, data.amount, data.currency);
+  }
+
+  if (current && current.isActive !== data.isActive) {
+    recordStatusChange(id, data.isActive);
   }
 
   revalidateSubscriptionPaths();
@@ -103,6 +115,40 @@ export async function toggleSubscriptionActiveAction(id: number) {
     .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId)))
     .run();
 
+  recordStatusChange(id, !current.isActive);
+  revalidateSubscriptionPaths();
+}
+
+export async function markAsPaidAction(id: number) {
+  const userId = await requireUserId();
+  const current = db
+    .select({
+      nextBillingDate: subscriptions.nextBillingDate,
+      billingCycle: subscriptions.billingCycle,
+      customIntervalDays: subscriptions.customIntervalDays,
+      isTrial: subscriptions.isTrial,
+    })
+    .from(subscriptions)
+    .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId)))
+    .get();
+
+  if (!current) return;
+
+  const nextDate = advanceDate(
+    new Date(`${current.nextBillingDate}T00:00:00`),
+    current.billingCycle,
+    current.customIntervalDays
+  );
+
+  db.update(subscriptions)
+    .set({
+      nextBillingDate: nextDate.toISOString().slice(0, 10),
+      isTrial: false,
+      updatedAt: sql`(current_timestamp)`,
+    })
+    .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId)))
+    .run();
+
   revalidateSubscriptionPaths();
 }
 
@@ -114,7 +160,9 @@ export async function deleteSubscriptionAction(id: number) {
   revalidateSubscriptionPaths();
 }
 
-export async function getPriceHistoryAction(id: number): Promise<PriceHistoryEntry[]> {
+export async function getSubscriptionHistoryAction(
+  id: number
+): Promise<{ prices: PriceHistoryEntry[]; statuses: StatusHistoryEntry[] }> {
   const userId = await requireUserId();
   const owns = db
     .select({ id: subscriptions.id })
@@ -122,6 +170,6 @@ export async function getPriceHistoryAction(id: number): Promise<PriceHistoryEnt
     .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId)))
     .get();
 
-  if (!owns) return [];
-  return getPriceHistory(id);
+  if (!owns) return { prices: [], statuses: [] };
+  return { prices: getPriceHistory(id), statuses: getStatusHistory(id) };
 }
