@@ -46,6 +46,7 @@ export async function importDataAction(payload: unknown): Promise<ImportDataStat
   revalidatePath("/");
   revalidatePath("/suscripciones");
   revalidatePath("/calendario");
+  revalidatePath("/estadisticas");
 
   return {
     success: true,

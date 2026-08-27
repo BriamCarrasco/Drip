@@ -6,10 +6,9 @@ import { categorySuggestions } from "@/lib/categories";
 import { knownServices, type KnownService } from "@/lib/known-services";
 import { SubscriptionAvatar } from "@/components/dashboard/SubscriptionAvatar";
 import { formatDate, formatMoney } from "@/lib/format";
-import { estimateTotalSpent } from "@/lib/subscription-calculations";
+import { totalFromPaymentLog, type PaymentLogEntry } from "@/lib/payment-log-utils";
 import type { SubscriptionRow } from "@/lib/subscriptions";
 import type { PriceHistoryEntry } from "@/lib/price-history";
-import type { StatusHistoryEntry } from "@/lib/status-history";
 import type { BillingCycle } from "@/drizzle/schema";
 import { useSubscriptionModal } from "@/lib/subscription-modal-context";
 import {
@@ -118,14 +117,14 @@ function SubscriptionForm({
   const [isTrial, setIsTrial] = useState(existing?.isTrial ?? false);
   const [splitCount, setSplitCount] = useState(existing ? String(existing.splitCount) : "1");
   const [priceHistoryEntries, setPriceHistoryEntries] = useState<PriceHistoryEntry[]>([]);
-  const [statusHistoryEntries, setStatusHistoryEntries] = useState<StatusHistoryEntry[]>([]);
+  const [paymentLogEntries, setPaymentLogEntries] = useState<PaymentLogEntry[]>([]);
   const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isEdit && existing) {
-      getSubscriptionHistoryAction(existing.id).then(({ prices, statuses }) => {
+      getSubscriptionHistoryAction(existing.id).then(({ prices, payments }) => {
         setPriceHistoryEntries(prices);
-        setStatusHistoryEntries(statuses);
+        setPaymentLogEntries(payments);
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -190,16 +189,7 @@ function SubscriptionForm({
   const inputClass =
     "rounded-[10px] border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-placeholder outline-none focus:border-accent";
   const labelClass = "text-[13px] font-semibold text-label";
-  const totalSpent = estimateTotalSpent(
-    {
-      billingCycle,
-      customIntervalDays: Number(customIntervalDays) || null,
-      nextBillingDate,
-      splitCount: Number(splitCount) || 1,
-    },
-    priceHistoryEntries,
-    statusHistoryEntries
-  );
+  const totalSpent = totalFromPaymentLog(paymentLogEntries);
 
   return (
     <div
@@ -456,7 +446,7 @@ function SubscriptionForm({
               <div className="flex items-center justify-between rounded-[10px] bg-surface-muted p-3.5">
                 <div>
                   <span className="text-[13px] font-medium text-label">Total pagado</span>
-                  <p className="text-[11.5px] text-muted">Cobros completos desde que la registraste en la app</p>
+                  <p className="text-[11.5px] text-muted">Lo que marcaste como pagado desde que la registraste</p>
                 </div>
                 <span className="font-heading text-[17px] font-semibold">
                   {formatMoney(totalSpent, currency)}

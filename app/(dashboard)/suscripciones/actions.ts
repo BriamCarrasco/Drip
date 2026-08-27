@@ -8,6 +8,7 @@ import { subscriptions } from "@/drizzle/schema";
 import { auth } from "@/auth";
 import { getPriceHistory, recordPriceChange, type PriceHistoryEntry } from "@/lib/price-history";
 import { getStatusHistory, recordStatusChange, type StatusHistoryEntry } from "@/lib/status-history";
+import { getPaymentLog, recordPayment, type PaymentLogEntry } from "@/lib/payment-log";
 import { advanceDate } from "@/lib/calendar";
 
 const subscriptionInputSchema = z.object({
@@ -45,6 +46,7 @@ function revalidateSubscriptionPaths() {
   revalidatePath("/");
   revalidatePath("/suscripciones");
   revalidatePath("/calendario");
+  revalidatePath("/estadisticas");
 }
 
 function parseSubscriptionInput(input: SubscriptionInput) {
@@ -127,6 +129,9 @@ export async function markAsPaidAction(id: number) {
       billingCycle: subscriptions.billingCycle,
       customIntervalDays: subscriptions.customIntervalDays,
       isTrial: subscriptions.isTrial,
+      amount: subscriptions.amount,
+      currency: subscriptions.currency,
+      splitCount: subscriptions.splitCount,
     })
     .from(subscriptions)
     .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId)))
@@ -149,6 +154,9 @@ export async function markAsPaidAction(id: number) {
     .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId)))
     .run();
 
+  const splitCount = current.splitCount > 0 ? current.splitCount : 1;
+  recordPayment(id, current.amount / splitCount, current.currency, `${current.nextBillingDate}T00:00:00.000Z`);
+
   revalidateSubscriptionPaths();
 }
 
@@ -162,7 +170,7 @@ export async function deleteSubscriptionAction(id: number) {
 
 export async function getSubscriptionHistoryAction(
   id: number
-): Promise<{ prices: PriceHistoryEntry[]; statuses: StatusHistoryEntry[] }> {
+): Promise<{ prices: PriceHistoryEntry[]; statuses: StatusHistoryEntry[]; payments: PaymentLogEntry[] }> {
   const userId = await requireUserId();
   const owns = db
     .select({ id: subscriptions.id })
@@ -170,6 +178,6 @@ export async function getSubscriptionHistoryAction(
     .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId)))
     .get();
 
-  if (!owns) return { prices: [], statuses: [] };
-  return { prices: getPriceHistory(id), statuses: getStatusHistory(id) };
+  if (!owns) return { prices: [], statuses: [], payments: [] };
+  return { prices: getPriceHistory(id), statuses: getStatusHistory(id), payments: getPaymentLog(id) };
 }

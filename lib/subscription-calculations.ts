@@ -1,5 +1,4 @@
 import type { BillingCycle } from "@/drizzle/schema";
-import { subtractDate } from "@/lib/calendar";
 
 export function monthlyEquivalent(input: {
   amount: number;
@@ -58,44 +57,4 @@ export function priceAt<T extends { changedAt: string }>(history: T[], atMs: num
     .sort((a, b) => a.changedAt.localeCompare(b.changedAt));
 
   return past.length > 0 ? past[past.length - 1] : null;
-}
-
-export function estimateTotalSpent(
-  sub: {
-    billingCycle: BillingCycle;
-    customIntervalDays?: number | null;
-    nextBillingDate: string;
-    splitCount?: number;
-  },
-  history: { amount: number; changedAt: string }[],
-  statusHistory: { isActive: boolean; changedAt: string }[] = []
-): number {
-  if (history.length === 0) return 0;
-
-  const historyStarts = history.map((entry) => new Date(entry.changedAt).getTime());
-  const statusStarts = statusHistory.map((entry) => new Date(entry.changedAt).getTime());
-  const floor = Math.min(...historyStarts, ...statusStarts);
-  const now = Date.now();
-  const splitCount = sub.splitCount && sub.splitCount > 0 ? sub.splitCount : 1;
-
-  let cursor = new Date(`${sub.nextBillingDate}T00:00:00`);
-  let guard = 0;
-  while (cursor.getTime() > now && guard < 1000) {
-    cursor = subtractDate(cursor, sub.billingCycle, sub.customIntervalDays);
-    guard += 1;
-  }
-
-  let total = 0;
-  guard = 0;
-  while (cursor.getTime() >= floor && guard < 2000) {
-    const atMs = cursor.getTime();
-    if (isActiveAt(statusHistory, atMs)) {
-      const price = priceAt(history, atMs);
-      if (price) total += price.amount / splitCount;
-    }
-    cursor = subtractDate(cursor, sub.billingCycle, sub.customIntervalDays);
-    guard += 1;
-  }
-
-  return total;
 }

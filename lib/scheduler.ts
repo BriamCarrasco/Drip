@@ -9,6 +9,7 @@ import {
   setBudgetAlertSentFor,
 } from "@/lib/settings";
 import { getDueSubscriptions, getOverdueSubscriptions } from "@/lib/scheduler-logic";
+import { recordPayment } from "@/lib/payment-log";
 import { advanceDate } from "@/lib/calendar";
 import { sendNotification } from "@/lib/apprise";
 import { refreshUsdClpRate, getEffectiveUsdClpRate } from "@/lib/exchange-rate";
@@ -27,8 +28,10 @@ export function rollOverdueSubscriptions(today: string): number {
   for (const sub of overdue) {
     let nextDate = sub.nextBillingDate;
     let guard = 0;
+    const splitCount = sub.splitCount > 0 ? sub.splitCount : 1;
 
     while (nextDate < today && guard < 500) {
+      recordPayment(sub.id, sub.amount / splitCount, sub.currency, `${nextDate}T00:00:00.000Z`);
       nextDate = advanceDate(
         new Date(`${nextDate}T00:00:00`),
         sub.billingCycle,
