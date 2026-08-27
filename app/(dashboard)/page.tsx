@@ -1,13 +1,14 @@
 import { auth } from "@/auth";
 import { getSubscriptionsForUser } from "@/lib/subscriptions";
 import { getSettingsForUser } from "@/lib/settings";
-import { convertToCurrency, getEffectiveUsdClpRate } from "@/lib/exchange-rate";
+import { getEffectiveUsdClpRate } from "@/lib/exchange-rate";
 import { monthlyTotalsByCurrency } from "@/lib/subscription-calculations";
+import { summarizeTotals } from "@/lib/currency-summary";
 import { StatTile } from "@/components/dashboard/StatTile";
 import { SubscriptionCard } from "@/components/dashboard/SubscriptionCard";
 import { EmptyHomeState } from "@/components/dashboard/EmptyHomeState";
 import { CalendarIcon, TrendingUpIcon, WalletIcon } from "@/components/icons";
-import { formatMoney, formatDate } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 
 export default async function HomePage() {
   const session = await auth();
@@ -24,35 +25,12 @@ export default async function HomePage() {
 
   const settings = getSettingsForUser(userId);
   const { defaultCurrency } = settings;
-  const active = subscriptions.filter((sub) => sub.isActive);
-  const monthlyTotals = monthlyTotalsByCurrency(active);
-  const primaryTotal = monthlyTotals.find((t) => t.currency === defaultCurrency) ?? monthlyTotals[0];
-  const secondaryTotals = monthlyTotals.filter((t) => t !== primaryTotal);
-
   const usdClpRate = getEffectiveUsdClpRate(settings);
-  const canConvert = secondaryTotals.length > 0 && usdClpRate !== null;
-  const combinedMonthlyTotal = primaryTotal
-    ? primaryTotal.total +
-      (canConvert
-        ? secondaryTotals.reduce(
-            (sum, t) => sum + convertToCurrency(t.total, t.currency, primaryTotal.currency, usdClpRate!),
-            0
-          )
-        : 0)
-    : 0;
 
-  const monthlyValue = primaryTotal ? formatMoney(combinedMonthlyTotal, primaryTotal.currency) : "—";
-  const yearlyValue = primaryTotal ? formatMoney(combinedMonthlyTotal * 12, primaryTotal.currency) : "—";
-  const monthlySecondary =
-    !canConvert && secondaryTotals.length > 0
-      ? secondaryTotals.map(({ currency, total }) => formatMoney(total, currency)).join(" + ")
-      : undefined;
-  const yearlySecondary =
-    !canConvert && secondaryTotals.length > 0
-      ? secondaryTotals.map(({ currency, total }) => formatMoney(total * 12, currency)).join(" + ")
-      : undefined;
-  const monthlyLabel = canConvert ? "Gasto mensual (convertido)" : "Gasto mensual";
-  const yearlyLabel = canConvert ? "Gasto anual proyectado (convertido)" : "Gasto anual proyectado";
+  const active = subscriptions.filter((sub) => sub.isActive);
+  const totals = monthlyTotalsByCurrency(active);
+  const monthly = summarizeTotals(totals, defaultCurrency, usdClpRate);
+  const yearly = summarizeTotals(totals, defaultCurrency, usdClpRate, 12);
 
   const next = active[0];
 
@@ -61,20 +39,20 @@ export default async function HomePage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:gap-5">
         <StatTile
           icon={<WalletIcon />}
-          value={monthlyValue}
-          secondaryValue={monthlySecondary}
-          label={monthlyLabel}
+          value={monthly.value}
+          secondaryValue={monthly.secondaryValue}
+          label={monthly.converted ? "Gasto mensual (convertido)" : "Gasto mensual"}
         />
         <StatTile
           icon={<TrendingUpIcon />}
-          value={yearlyValue}
-          secondaryValue={yearlySecondary}
-          label={yearlyLabel}
+          value={yearly.value}
+          secondaryValue={yearly.secondaryValue}
+          label={yearly.converted ? "Al año (convertido)" : "Al año"}
         />
         <StatTile
           icon={<CalendarIcon size={18} />}
           value={next ? formatDate(next.nextBillingDate) : "—"}
-          label={next ? `Próxima renovación · ${next.name}` : "Sin suscripciones activas"}
+          label={next ? `Próximo cobro · ${next.name}` : "Sin cobros programados"}
         />
       </div>
 

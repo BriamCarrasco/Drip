@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BarChartIcon,
   CalendarIcon,
   HomeIcon,
   ListIcon,
@@ -16,6 +17,7 @@ const navItems = [
   { href: "/", label: "Inicio", icon: HomeIcon },
   { href: "/suscripciones", label: "Suscripciones", icon: ListIcon },
   { href: "/calendario", label: "Calendario", icon: CalendarIcon },
+  { href: "/estadisticas", label: "Estadísticas", icon: BarChartIcon },
   { href: "/configuracion", label: "Configuración", icon: SettingsIcon },
 ];
 
