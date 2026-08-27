@@ -67,8 +67,14 @@ export default async function HomePage() {
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
-          {active.map((sub) => (
-            <SubscriptionCard key={sub.id} subscription={sub} />
+          {active.map((sub, index) => (
+            <div
+              key={sub.id}
+              className="animate-card-in"
+              style={{ animationDelay: `${Math.min(index, 10) * 40}ms` }}
+            >
+              <SubscriptionCard subscription={sub} />
+            </div>
           ))}
         </div>
       )}

@@ -36,6 +36,8 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
   const [sortKey, setSortKey] = useState<SortKey>("nextBillingDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [isPending, startTransition] = useTransition();
+  const [justPaidId, setJustPaidId] = useState<number | null>(null);
+  const [bouncingId, setBouncingId] = useState<number | null>(null);
 
   const categories = useMemo(() => {
     const fromData = subscriptions.map((sub) => sub.category);
@@ -63,12 +65,16 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
   }
 
   function handleToggleActive(id: number) {
+    setBouncingId(id);
+    setTimeout(() => setBouncingId(null), 300);
     startTransition(() => {
       toggleSubscriptionActiveAction(id);
     });
   }
 
   function handleMarkAsPaid(id: number) {
+    setJustPaidId(id);
+    setTimeout(() => setJustPaidId(null), 400);
     startTransition(() => {
       markAsPaidAction(id);
     });
@@ -165,11 +171,9 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
               onClick={() => handleToggleActive(sub.id)}
               disabled={isPending}
               title={sub.isActive ? "Pausar suscripción" : "Reactivar suscripción"}
-              className={
-                sub.isActive
-                  ? "rounded-full bg-success-tint px-3 py-1 text-xs font-semibold text-success disabled:opacity-50"
-                  : "rounded-full bg-surface-muted px-3 py-1 text-xs font-semibold text-muted-strong disabled:opacity-50"
-              }
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors duration-200 disabled:opacity-50 ${
+                sub.isActive ? "bg-success-tint text-success" : "bg-surface-muted text-muted-strong"
+              } ${bouncingId === sub.id ? "animate-pill-bounce" : ""}`}
             >
               {sub.isActive ? "Activa" : "Inactiva"}
             </button>
@@ -186,7 +190,9 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
                 disabled={isPending}
                 aria-label={`Marcar ${sub.name} como pagada`}
                 title="Marcar como pagada"
-                className="text-muted hover:text-success disabled:opacity-50"
+                className={`text-muted transition-transform hover:text-success active:scale-90 disabled:opacity-50 ${
+                  justPaidId === sub.id ? "animate-check-pulse text-success" : ""
+                }`}
               >
                 <CheckIcon />
               </button>
@@ -306,11 +312,9 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
                   onClick={() => handleToggleActive(sub.id)}
                   disabled={isPending}
                   title={sub.isActive ? "Pausar suscripción" : "Reactivar suscripción"}
-                  className={
-                    sub.isActive
-                      ? "rounded-full bg-success-tint px-3 py-1 text-xs font-semibold text-success disabled:opacity-50"
-                      : "rounded-full bg-surface-muted px-3 py-1 text-xs font-semibold text-muted-strong disabled:opacity-50"
-                  }
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors duration-200 disabled:opacity-50 ${
+                    sub.isActive ? "bg-success-tint text-success" : "bg-surface-muted text-muted-strong"
+                  } ${bouncingId === sub.id ? "animate-pill-bounce" : ""}`}
                 >
                   {sub.isActive ? "Activa" : "Inactiva"}
                 </button>
@@ -321,7 +325,9 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
                   disabled={isPending}
                   aria-label={`Marcar ${sub.name} como pagada`}
                   title="Marcar como pagada"
-                  className="text-muted hover:text-success disabled:opacity-50"
+                  className={`text-muted transition-transform hover:text-success active:scale-90 disabled:opacity-50 ${
+                    justPaidId === sub.id ? "animate-check-pulse text-success" : ""
+                  }`}
                 >
                   <CheckIcon />
                 </button>

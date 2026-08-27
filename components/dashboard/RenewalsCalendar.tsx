@@ -20,6 +20,7 @@ export function RenewalsCalendar({ subscriptions }: { subscriptions: Subscriptio
   const today = useMemo(() => new Date(), []);
   const [cursorYear, setCursorYear] = useState(today.getFullYear());
   const [cursorMonth, setCursorMonth] = useState(today.getMonth());
+  const [direction, setDirection] = useState<"next" | "prev" | null>(null);
 
   const monthStart = new Date(cursorYear, cursorMonth, 1);
   const monthEnd = new Date(cursorYear, cursorMonth + 1, 0);
@@ -57,12 +58,14 @@ export function RenewalsCalendar({ subscriptions }: { subscriptions: Subscriptio
 
   function goPrevMonth() {
     const d = new Date(cursorYear, cursorMonth - 1, 1);
+    setDirection("prev");
     setCursorYear(d.getFullYear());
     setCursorMonth(d.getMonth());
   }
 
   function goNextMonth() {
     const d = new Date(cursorYear, cursorMonth + 1, 1);
+    setDirection("next");
     setCursorYear(d.getFullYear());
     setCursorMonth(d.getMonth());
   }
@@ -94,7 +97,12 @@ export function RenewalsCalendar({ subscriptions }: { subscriptions: Subscriptio
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
-        <div className="min-w-[560px]">
+        <div
+          key={`${cursorYear}-${cursorMonth}`}
+          className={`min-w-[560px] ${
+            direction === "next" ? "animate-slide-in-right" : direction === "prev" ? "animate-slide-in-left" : ""
+          }`}
+        >
           <div className="grid grid-cols-7 divide-x divide-border-soft border-b border-border-soft">
             {weekdayLabels.map((label) => (
               <div

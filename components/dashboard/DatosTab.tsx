@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition, type ChangeEvent } from "react";
 import { exportDataAction, importDataAction } from "@/app/(dashboard)/configuracion/data-actions";
+import { InlineMessage } from "@/components/dashboard/InlineMessage";
 
 export function DatosTab() {
   const [isExporting, startExport] = useTransition();
@@ -91,15 +92,7 @@ export function DatosTab() {
           {isImporting && <span className="text-[13px] text-muted">Importando...</span>}
         </div>
         {importMessage && (
-          <span
-            className={
-              importMessage.type === "success"
-                ? "text-[13px] font-medium text-success"
-                : "text-[13px] font-medium text-danger"
-            }
-          >
-            {importMessage.text}
-          </span>
+          <InlineMessage pending={isImporting} tone={importMessage.type} text={importMessage.text} />
         )}
       </div>
     </div>

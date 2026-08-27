@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { ChevronDownIcon } from "@/components/icons";
 import { CuentaTab } from "@/components/dashboard/CuentaTab";
 import { DatosTab } from "@/components/dashboard/DatosTab";
+import { InlineMessage } from "@/components/dashboard/InlineMessage";
 import type { Settings } from "@/lib/settings";
 import { formatDate, formatMoney } from "@/lib/format";
 import {
@@ -147,10 +148,10 @@ export function ConfiguracionForm({
                 {testPending ? "Enviando..." : "Enviar notificación de prueba"}
               </button>
               {testState.success && (
-                <span className="text-[12.5px] font-medium text-success">Notificación enviada.</span>
+                <InlineMessage pending={testPending} tone="success" text="Notificación enviada." />
               )}
               {testState.error && (
-                <span className="text-[12.5px] font-medium text-danger">{testState.error}</span>
+                <InlineMessage pending={testPending} tone="error" text={testState.error} />
               )}
             </div>
           </div>
@@ -248,12 +249,10 @@ export function ConfiguracionForm({
                     </button>
                   </div>
                   {refreshState.error && (
-                    <span className="text-[12.5px] font-medium text-danger">{refreshState.error}</span>
+                    <InlineMessage pending={refreshPending} tone="error" text={refreshState.error} />
                   )}
                   {refreshState.success && (
-                    <span className="text-[12.5px] font-medium text-success">
-                      Tipo de cambio actualizado.
-                    </span>
+                    <InlineMessage pending={refreshPending} tone="success" text="Tipo de cambio actualizado." />
                   )}
                 </div>
               )}
@@ -301,10 +300,10 @@ export function ConfiguracionForm({
           {activeTab !== "cuenta" && activeTab !== "datos" && (
             <div className="mt-6 flex items-center justify-end gap-3">
               {settingsState.success && (
-                <span className="text-[13px] font-medium text-success">Cambios guardados.</span>
+                <InlineMessage pending={settingsPending} tone="success" text="Cambios guardados." />
               )}
               {settingsState.error && (
-                <span className="text-[13px] font-medium text-danger">{settingsState.error}</span>
+                <InlineMessage pending={settingsPending} tone="error" text={settingsState.error} />
               )}
               <button
                 type="submit"

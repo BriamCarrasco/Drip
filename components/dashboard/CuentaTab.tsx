@@ -7,6 +7,7 @@ import {
   type ChangePasswordState,
   type ChangeUsernameState,
 } from "@/app/(dashboard)/configuracion/actions";
+import { InlineMessage } from "@/components/dashboard/InlineMessage";
 
 const initialPasswordState: ChangePasswordState = {};
 const initialUsernameState: ChangeUsernameState = {};
@@ -91,10 +92,10 @@ export function CuentaTab({
               {passwordPending ? "Guardando..." : "Cambiar contraseña"}
             </button>
             {passwordState.success && (
-              <span className="text-[13px] font-medium text-success">Contraseña actualizada.</span>
+              <InlineMessage pending={passwordPending} tone="success" text="Contraseña actualizada." />
             )}
             {passwordState.error && (
-              <span className="text-[13px] font-medium text-danger">{passwordState.error}</span>
+              <InlineMessage pending={passwordPending} tone="error" text={passwordState.error} />
             )}
           </div>
         </form>
@@ -136,7 +137,7 @@ export function CuentaTab({
               {usernamePending ? "Guardando..." : "Cambiar usuario"}
             </button>
             {usernameState.error && (
-              <span className="text-[13px] font-medium text-danger">{usernameState.error}</span>
+              <InlineMessage pending={usernamePending} tone="error" text={usernameState.error} />
             )}
           </div>
         </form>
