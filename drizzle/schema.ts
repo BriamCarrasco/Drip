@@ -55,6 +55,18 @@ export const statusHistory = sqliteTable("status_history", {
     .default(sql`(current_timestamp)`),
 });
 
+export const paymentLog = sqliteTable("payment_log", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  subscriptionId: integer("subscription_id")
+    .notNull()
+    .references(() => subscriptions.id, { onDelete: "cascade" }),
+  amount: real("amount").notNull(),
+  currency: text("currency").notNull(),
+  paidAt: text("paid_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
 export const priceHistory = sqliteTable("price_history", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   subscriptionId: integer("subscription_id")
@@ -88,6 +100,11 @@ export const exchangeRates = sqliteTable("exchange_rates", {
   pair: text("pair").primaryKey(),
   rate: real("rate").notNull(),
   updatedAt: text("updated_at").notNull(),
+});
+
+export const historicalExchangeRates = sqliteTable("historical_exchange_rates", {
+  date: text("date").primaryKey(),
+  rate: real("rate").notNull(),
 });
 
 export const logoCache = sqliteTable("logo_cache", {

@@ -78,6 +78,20 @@
       "when": 1787798414252,
       "tag": "0010_odd_boomer",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1787844613462,
+      "tag": "0011_opposite_tempest",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1787846589264,
+      "tag": "0012_brief_puppet_master",
+      "breakpoints": true
     }
   ]
 }
