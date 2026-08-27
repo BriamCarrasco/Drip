@@ -1,13 +1,27 @@
 # Gestor de Suscripciones
 
-Aplicación **autohospedada** (self-hosted) para llevar el control de suscripciones
-recurrentes (streaming, software, dominios, hosting, etc.): cuánto pagas, cuándo se
-renueva cada una y avisos antes de cada cobro por Discord, Telegram, email u otros 80+
-canales soportados por [Apprise](https://github.com/caronc/apprise).
+Aplicación **autohospedada** (self-hosted) para llevar el control de tus suscripciones:
+cuánto pagás, cuándo se cobra cada una y cómo fue cambiando el precio con el tiempo.
+
+**No se conecta a tu banco.** En vez de detectar cobros después de que ocurrieron, vos
+registrás tus suscripciones y la app se adelanta: te avisa antes del cobro por Discord,
+Telegram, email u otros 80+ canales soportados por
+[Apprise](https://github.com/caronc/apprise), antes de que termine una prueba gratuita, y
+registra cada cambio de precio.
 
 Pensada para correr en un homelab, mini PC o Raspberry Pi: un solo contenedor Docker,
 sin dependencias de servicios cloud de terceros, con toda la persistencia en un archivo
 SQLite local.
+
+## Qué hace
+
+- **Gasto mensual y anual** combinado de todas tus suscripciones activas.
+- **Avisos antes del cobro** vía Apprise, con recuperación si el servidor estuvo apagado.
+- **Calendario** de próximos cobros del mes.
+- **Historial de precios**: cuánto subió cada servicio y cuánto llevás pagado.
+- **Gasto compartido**: dividí una suscripción entre varias personas y mirá solo tu parte.
+- **Pruebas gratuitas**: avisos antes de que empiecen a cobrarte.
+- **CLP y USD**, con tipo de cambio manual o automático.
 
 ## Empezar con Docker (recomendado)
 
