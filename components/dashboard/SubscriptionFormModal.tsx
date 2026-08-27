@@ -29,13 +29,39 @@ const cycles: { value: BillingCycle; label: string }[] = [
 
 const CUSTOM_CATEGORY = "__custom__";
 
+const CLOSE_ANIMATION_MS = 180;
+
 export function SubscriptionFormModal() {
   const { modal, closeModal, defaultCurrency } = useSubscriptionModal();
+  // conserva el contenido del modal mientras se anima el cierre, ya que el
+  // contexto ya reseteó `modal` a "closed" para ese momento
+  const [prevModal, setPrevModal] = useState(modal);
+  const [cachedModal, setCachedModal] = useState(modal);
+  if (modal !== prevModal) {
+    setPrevModal(modal);
+    if (modal.mode !== "closed") setCachedModal(modal);
+  }
 
-  if (modal.mode === "closed") return null;
+  const [shouldRender, setShouldRender] = useState(modal.mode !== "closed");
+  const [visible, setVisible] = useState(false);
 
-  const isEdit = modal.mode === "edit";
-  const existing = isEdit ? modal.subscription : undefined;
+  useEffect(() => {
+    if (modal.mode !== "closed") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShouldRender(true);
+      const raf = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(raf);
+    }
+
+    setVisible(false);
+    const timeout = setTimeout(() => setShouldRender(false), CLOSE_ANIMATION_MS);
+    return () => clearTimeout(timeout);
+  }, [modal]);
+
+  if (!shouldRender) return null;
+
+  const isEdit = cachedModal.mode === "edit";
+  const existing = isEdit ? cachedModal.subscription : undefined;
 
   return (
     <SubscriptionForm
@@ -44,6 +70,7 @@ export function SubscriptionFormModal() {
       existing={existing}
       defaultCurrency={defaultCurrency}
       onCancel={closeModal}
+      visible={visible}
     />
   );
 }
@@ -53,11 +80,13 @@ function SubscriptionForm({
   existing,
   defaultCurrency,
   onCancel,
+  visible,
 }: {
   isEdit: boolean;
   existing?: SubscriptionRow;
   defaultCurrency: string;
   onCancel: () => void;
+  visible: boolean;
 }) {
   const { closeModal } = useSubscriptionModal();
   const [isPending, startTransition] = useTransition();
@@ -174,13 +203,17 @@ function SubscriptionForm({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#231F18]/50 px-4"
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-[#231F18]/50 px-4 transition-opacity duration-200 ease-out motion-reduce:transition-none ${
+        visible ? "opacity-100" : "opacity-0"
+      }`}
       onClick={onCancel}
     >
       <form
         onClick={(event) => event.stopPropagation()}
         onSubmit={handleSubmit}
-        className="flex max-h-[90vh] w-full max-w-[520px] flex-col gap-5 overflow-y-auto rounded-[20px] bg-surface p-5 shadow-2xl sm:p-7"
+        className={`flex max-h-[90vh] w-full max-w-[520px] flex-col gap-5 overflow-y-auto rounded-[20px] bg-surface p-5 shadow-2xl transition-all duration-200 ease-out motion-reduce:transition-none sm:p-7 ${
+          visible ? "translate-y-0 scale-100 opacity-100" : "translate-y-2 scale-95 opacity-0"
+        }`}
       >
         <div className="flex items-center justify-between">
           <h2 className="font-heading text-[19px] font-semibold">
