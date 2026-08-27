@@ -1,11 +1,23 @@
 import { auth } from "@/auth";
 import { getSubscriptionsForUser } from "@/lib/subscriptions";
-import { RenewalsCalendar } from "@/components/dashboard/RenewalsCalendar";
+import { getPaymentLog } from "@/lib/payment-log";
+import { RenewalsCalendar, type PaidOccurrence } from "@/components/dashboard/RenewalsCalendar";
 
 export default async function CalendarioPage() {
   const session = await auth();
   const userId = Number(session?.user?.id);
   const subscriptions = getSubscriptionsForUser(userId).filter((sub) => sub.isActive);
+
+  const payments: PaidOccurrence[] = subscriptions.flatMap((sub) =>
+    getPaymentLog(sub.id).map((payment) => ({
+      subscriptionId: sub.id,
+      name: sub.name,
+      logoUrl: sub.logoUrl,
+      amount: payment.amount,
+      currency: payment.currency,
+      date: payment.paidAt.slice(0, 10),
+    }))
+  );
 
   return (
     <div className="flex flex-col gap-6 px-4 py-6 sm:gap-7 sm:px-8 sm:py-9 lg:px-14">
@@ -19,7 +31,7 @@ export default async function CalendarioPage() {
           Todavía no tienes suscripciones registradas.
         </p>
       ) : (
-        <RenewalsCalendar subscriptions={subscriptions} />
+        <RenewalsCalendar subscriptions={subscriptions} payments={payments} />
       )}
     </div>
   );
