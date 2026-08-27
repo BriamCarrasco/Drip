@@ -81,8 +81,14 @@ defecto:
   (dólar observado, sin API key) para mantener el tipo de cambio actualizado, con tu
   valor manual como respaldo si la consulta falla o no hay internet.
 
-Esta es la única llamada a un servicio externo en toda la app, y es opt-in: si no la
-activás, la instancia no hace ninguna petición fuera de tu red.
+Con el modo automático activado, Estadísticas también muestra cuánto de lo que subió
+cada suscripción en USD es aumento real del proveedor y cuánto es solo el dólar —
+consultando (y cacheando para siempre) el tipo de cambio histórico de mindicador.cl del
+día en que registraste cada suscripción. En modo manual esto no aparece, ya que
+requeriría esa misma consulta externa.
+
+Estas son las únicas llamadas a un servicio externo en toda la app, y son opt-in: si no
+activás el modo automático, la instancia no hace ninguna petición fuera de tu red.
 
 ## Logos de suscripciones
 
