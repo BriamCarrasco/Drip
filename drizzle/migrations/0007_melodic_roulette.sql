@@ -1,0 +1,1 @@
+ALTER TABLE `subscriptions` ADD `last_notified_for` text;

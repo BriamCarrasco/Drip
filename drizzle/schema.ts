@@ -34,10 +34,23 @@ export const subscriptions = sqliteTable("subscriptions", {
   appriseUrl: text("apprise_url"),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
   isTrial: integer("is_trial", { mode: "boolean" }).notNull().default(false),
+  splitCount: integer("split_count").notNull().default(1),
+  lastNotifiedFor: text("last_notified_for"),
   createdAt: text("created_at")
     .notNull()
     .default(sql`(current_timestamp)`),
   updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(current_timestamp)`),
+});
+
+export const statusHistory = sqliteTable("status_history", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  subscriptionId: integer("subscription_id")
+    .notNull()
+    .references(() => subscriptions.id, { onDelete: "cascade" }),
+  isActive: integer("is_active", { mode: "boolean" }).notNull(),
+  changedAt: text("changed_at")
     .notNull()
     .default(sql`(current_timestamp)`),
 });
@@ -67,6 +80,8 @@ export const settings = sqliteTable("settings", {
     .default("manual")
     .$type<ExchangeRateMode>(),
   manualExchangeRate: real("manual_exchange_rate"),
+  monthlyBudget: real("monthly_budget"),
+  budgetAlertSentFor: text("budget_alert_sent_for"),
 });
 
 export const exchangeRates = sqliteTable("exchange_rates", {

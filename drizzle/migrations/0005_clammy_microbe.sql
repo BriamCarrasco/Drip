@@ -1,0 +1,1 @@
+ALTER TABLE `subscriptions` ADD `split_count` integer DEFAULT 1 NOT NULL;

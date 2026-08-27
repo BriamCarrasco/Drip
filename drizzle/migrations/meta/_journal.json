@@ -36,6 +36,48 @@
       "when": 1787546941991,
       "tag": "0004_round_maverick",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1787582239014,
+      "tag": "0005_clammy_microbe",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1787618076856,
+      "tag": "0006_sturdy_thundra",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1787620472428,
+      "tag": "0007_melodic_roulette",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1787622224438,
+      "tag": "0008_nice_invaders",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1787796302055,
+      "tag": "0009_rainy_gambit",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1787798414252,
+      "tag": "0010_odd_boomer",
+      "breakpoints": true
     }
   ]
 }
