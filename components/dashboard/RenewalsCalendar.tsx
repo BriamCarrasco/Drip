@@ -134,12 +134,14 @@ export function RenewalsCalendar({ subscriptions }: { subscriptions: Subscriptio
                       <div className="flex flex-col gap-1">
                         {items.slice(0, 3).map((sub) => {
                           const avatar = getAvatarStyle(sub.name);
+                          const label = `${sub.name} · ${formatMoney(sub.amount, sub.currency)}`;
+
                           return (
                             <button
                               key={sub.id}
                               type="button"
                               onClick={() => openEditModal(sub)}
-                              title={`${sub.name} · ${formatMoney(sub.amount, sub.currency)}`}
+                              title={label}
                               className="flex items-center gap-1 truncate rounded-md px-1.5 py-1 text-left text-[11px] font-semibold"
                               style={{ background: avatar.bg, color: avatar.color }}
                             >

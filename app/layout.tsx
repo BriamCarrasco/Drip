@@ -17,8 +17,8 @@ const workSans = Work_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Suscripciones",
-  description: "Gestor de suscripciones autohospedado",
+  title: "Gestor de Suscripciones",
+  description: "Control autohospedado de tus suscripciones y próximos cobros",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

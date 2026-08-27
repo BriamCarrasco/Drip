@@ -16,7 +16,7 @@ export default async function CalendarioPage() {
 
       {subscriptions.length === 0 ? (
         <p className="rounded-2xl border border-border bg-surface px-6 py-10 text-center text-sm text-muted">
-          Todavía no tienes suscripciones activas.
+          Todavía no tienes suscripciones registradas.
         </p>
       ) : (
         <RenewalsCalendar subscriptions={subscriptions} />
