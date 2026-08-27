@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   BarChartIcon,
   CalendarIcon,
@@ -27,6 +28,26 @@ export function TopBar({ username }: { username: string }) {
   const showNewButton = pathname !== "/configuracion";
   const initials = username.slice(0, 2).toUpperCase();
 
+  const navRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef(new Map<string, HTMLAnchorElement>());
+  const [pill, setPill] = useState<{ left: number; width: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const container = navRef.current;
+    const activeItem = itemRefs.current.get(pathname);
+    if (!container || !activeItem) return;
+
+    function measure() {
+      const containerRect = container!.getBoundingClientRect();
+      const itemRect = activeItem!.getBoundingClientRect();
+      setPill({ left: itemRect.left - containerRect.left, width: itemRect.width });
+    }
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [pathname]);
+
   return (
     <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-8 sm:py-4 lg:px-14 lg:py-[22px]">
       <div className="flex shrink-0 items-center gap-2.5">
@@ -36,7 +57,17 @@ export function TopBar({ username }: { username: string }) {
         <span className="hidden font-heading text-base font-semibold sm:inline">Suscripciones</span>
       </div>
 
-      <div className="flex items-center gap-0.5 rounded-xl bg-surface-muted p-1 sm:gap-1.5">
+      <div
+        ref={navRef}
+        className="relative flex items-center gap-0.5 rounded-xl bg-surface-muted p-1 sm:gap-1.5"
+      >
+        {pill && (
+          <span
+            aria-hidden
+            className="absolute inset-y-1 rounded-[9px] bg-accent transition-all duration-300 ease-out motion-reduce:transition-none"
+            style={{ left: pill.left, width: pill.width }}
+          />
+        )}
         {navItems.map((item) => {
           const active = item.href === pathname;
           const Icon = item.icon;
@@ -44,10 +75,14 @@ export function TopBar({ username }: { username: string }) {
             <Link
               key={item.href}
               href={item.href}
+              ref={(el) => {
+                if (el) itemRefs.current.set(item.href, el);
+                else itemRefs.current.delete(item.href);
+              }}
               className={
                 active
-                  ? "flex items-center gap-2 rounded-[9px] bg-accent px-2.5 py-2 text-[13px] font-semibold text-white sm:px-4"
-                  : "flex items-center gap-2 rounded-[9px] px-2.5 py-2 text-[13px] font-medium text-muted-strong hover:text-foreground sm:px-4"
+                  ? "relative z-10 flex items-center gap-2 rounded-[9px] px-2.5 py-2 text-[13px] font-semibold text-white transition-colors duration-300 sm:px-4"
+                  : "relative z-10 flex items-center gap-2 rounded-[9px] px-2.5 py-2 text-[13px] font-medium text-muted-strong transition-colors duration-300 hover:text-foreground sm:px-4"
               }
             >
               <Icon size={16} />
