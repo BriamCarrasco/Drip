@@ -1,6 +1,8 @@
 import type { BillingCycle } from "@/drizzle/schema";
 import type { SubscriptionRow } from "@/lib/subscriptions";
-import { estimateTotalSpent, isActiveAt, monthlyEquivalent, priceAt } from "@/lib/subscription-calculations";
+import { isActiveAt, monthlyEquivalent, priceAt } from "@/lib/subscription-calculations";
+import { convertToCurrency } from "@/lib/exchange-rate";
+import { totalFromPaymentLog, type PaymentLogEntry } from "@/lib/payment-log";
 import type { CurrencyTotal } from "@/lib/currency-summary";
 
 export type PriceEntry = { amount: number; currency: string; changedAt: string };
@@ -13,17 +15,12 @@ export type SubscriptionSpend = {
 
 export function totalsSpentBySubscription(
   subscriptions: SubscriptionRow[],
-  priceHistoryBySub: Map<number, PriceEntry[]>,
-  statusHistoryBySub: Map<number, StatusEntry[]>
+  paymentLogBySub: Map<number, PaymentLogEntry[]>
 ): SubscriptionSpend[] {
   return subscriptions
     .map((subscription) => ({
       subscription,
-      totalSpent: estimateTotalSpent(
-        subscription,
-        priceHistoryBySub.get(subscription.id) ?? [],
-        statusHistoryBySub.get(subscription.id) ?? []
-      ),
+      totalSpent: totalFromPaymentLog(paymentLogBySub.get(subscription.id) ?? []),
     }))
     .sort((a, b) => b.totalSpent - a.totalSpent);
 }
@@ -80,4 +77,51 @@ export function hasHistoryOlderThan(priceHistoryBySub: Map<number, PriceEntry[]>
 
 export function nowMs(): number {
   return Date.now();
+}
+
+export type FxImpactRow = {
+  subscription: SubscriptionRow;
+  vendorPct: number;
+  fxPct: number;
+  combinedPct: number;
+};
+
+export function computeFxImpact(
+  subscriptions: SubscriptionRow[],
+  priceHistoryBySub: Map<number, PriceEntry[]>,
+  firstRateBySub: Map<number, number>,
+  defaultCurrency: string,
+  currentRate: number
+): FxImpactRow[] {
+  const rows: FxImpactRow[] = [];
+
+  for (const sub of subscriptions) {
+    const firstRate = firstRateBySub.get(sub.id);
+    if (firstRate === undefined) continue;
+
+    const history = priceHistoryBySub.get(sub.id) ?? [];
+    if (history.length === 0) continue;
+
+    const sorted = [...history].sort((a, b) => a.changedAt.localeCompare(b.changedAt));
+    const firstAmount = sorted[0].amount;
+    const latestAmount = sub.amount;
+    if (firstAmount <= 0) continue;
+
+    const firstInDefault = convertToCurrency(firstAmount, sub.currency, defaultCurrency, firstRate);
+    if (firstInDefault <= 0) continue;
+    const currentInDefault = convertToCurrency(latestAmount, sub.currency, defaultCurrency, currentRate);
+
+    const vendorRatio = latestAmount / firstAmount;
+    const combinedRatio = currentInDefault / firstInDefault;
+    const fxRatio = combinedRatio / vendorRatio;
+
+    rows.push({
+      subscription: sub,
+      vendorPct: (vendorRatio - 1) * 100,
+      fxPct: (fxRatio - 1) * 100,
+      combinedPct: (combinedRatio - 1) * 100,
+    });
+  }
+
+  return rows.sort((a, b) => Math.abs(b.combinedPct) - Math.abs(a.combinedPct));
 }

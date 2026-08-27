@@ -1,5 +1,6 @@
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { exchangeRates } from "@/drizzle/schema";
+import { exchangeRates, historicalExchangeRates } from "@/drizzle/schema";
 import type { Settings } from "@/lib/settings";
 
 const USD_CLP_PAIR = "USD_CLP";
@@ -35,6 +36,56 @@ export async function refreshUsdClpRate(): Promise<number | null> {
     })
     .run();
 
+  return rate;
+}
+
+function toMindicadorDate(dateIso: string): string {
+  const [year, month, day] = dateIso.split("-");
+  return `${day}-${month}-${year}`;
+}
+
+async function fetchUsdClpRateForDate(dateIso: string): Promise<number | null> {
+  try {
+    const response = await fetch(`${FETCH_URL}/${toMindicadorDate(dateIso)}`, {
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const rate = data?.serie?.[0]?.valor;
+    return typeof rate === "number" && rate > 0 ? rate : null;
+  } catch {
+    return null;
+  }
+}
+
+async function findHistoricalUsdClpRate(dateIso: string): Promise<number | null> {
+  const cursor = new Date(`${dateIso}T00:00:00`);
+  for (let i = 0; i < 5; i++) {
+    const rate = await fetchUsdClpRateForDate(cursor.toISOString().slice(0, 10));
+    if (rate !== null) return rate;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return null;
+}
+
+const HISTORICAL_LOOKUP_BUDGET_MS = 6000;
+
+export async function getOrFetchHistoricalUsdClpRate(dateIso: string): Promise<number | null> {
+  const cached = db
+    .select()
+    .from(historicalExchangeRates)
+    .where(eq(historicalExchangeRates.date, dateIso))
+    .get();
+  if (cached) return cached.rate;
+
+  const rate = await Promise.race([
+    findHistoricalUsdClpRate(dateIso),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), HISTORICAL_LOOKUP_BUDGET_MS)),
+  ]);
+
+  if (rate !== null) {
+    db.insert(historicalExchangeRates).values({ date: dateIso, rate }).onConflictDoNothing().run();
+  }
   return rate;
 }
 
