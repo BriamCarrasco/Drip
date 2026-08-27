@@ -86,6 +86,8 @@ export async function updateSettingsAction(
     .run();
 
   revalidatePath("/configuracion");
+  revalidatePath("/");
+  revalidatePath("/estadisticas");
   return { success: true };
 }
 
@@ -99,7 +101,53 @@ export async function refreshExchangeRateAction(_prevState: RefreshExchangeRateS
   }
 
   revalidatePath("/configuracion");
+  revalidatePath("/");
+  revalidatePath("/estadisticas");
   return { success: true, rate };
+}
+
+export type TelegramChatIdState = { chatId?: string; error?: string };
+
+export async function fetchTelegramChatIdAction(
+  _prevState: TelegramChatIdState,
+  formData: FormData
+): Promise<TelegramChatIdState> {
+  const token = formData.get("botToken");
+  if (typeof token !== "string" || token.trim().length === 0) {
+    return { error: "Ingresa el token del bot primero." };
+  }
+
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${token.trim()}/getUpdates`, {
+      signal: AbortSignal.timeout(8000),
+    });
+    const data = await response.json();
+
+    if (!data.ok) {
+      return { error: "Telegram rechazó el token. Revisa que esté bien copiado." };
+    }
+
+    const updates = data.result as {
+      message?: { chat?: { id: number } };
+      channel_post?: { chat?: { id: number } };
+    }[];
+
+    if (!updates || updates.length === 0) {
+      return {
+        error: "No encontramos mensajes todavía. Escribile algo a tu bot (o al grupo) y probá de nuevo.",
+      };
+    }
+
+    const last = updates[updates.length - 1];
+    const chatId = last.message?.chat?.id ?? last.channel_post?.chat?.id;
+    if (chatId === undefined) {
+      return { error: "No se pudo leer el chat_id de la respuesta de Telegram." };
+    }
+
+    return { chatId: String(chatId) };
+  } catch {
+    return { error: "No se pudo conectar con Telegram. Revisa tu conexión." };
+  }
 }
 
 export type TestNotificationState = { error?: string; success?: boolean };

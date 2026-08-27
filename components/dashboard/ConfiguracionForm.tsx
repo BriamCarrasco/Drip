@@ -7,6 +7,9 @@ import { DatosTab } from "@/components/dashboard/DatosTab";
 import { InlineMessage } from "@/components/dashboard/InlineMessage";
 import type { Settings } from "@/lib/settings";
 import { formatDate, formatMoney } from "@/lib/format";
+import { buildTelegramAppriseUrl, parseTelegramAppriseUrl } from "@/lib/telegram-apprise";
+import { isDiscordAppriseUrl } from "@/lib/discord-apprise";
+import { buildEmailAppriseUrl, parseEmailAppriseUrl, type EmailProvider } from "@/lib/email-apprise";
 import {
   getStoredThemePreference,
   setThemePreference,
@@ -16,9 +19,11 @@ import {
   updateSettingsAction,
   sendTestNotificationAction,
   refreshExchangeRateAction,
+  fetchTelegramChatIdAction,
   type SettingsState,
   type TestNotificationState,
   type RefreshExchangeRateState,
+  type TelegramChatIdState,
 } from "@/app/(dashboard)/configuracion/actions";
 
 const themeOptions: { value: ThemePreference; label: string }[] = [
@@ -35,6 +40,23 @@ const exchangeRateModeOptions: { value: "manual" | "auto"; label: string }[] = [
 const initialSettingsState: SettingsState = {};
 const initialTestState: TestNotificationState = {};
 const initialRefreshState: RefreshExchangeRateState = {};
+const initialChatIdState: TelegramChatIdState = {};
+
+type AppriseMode = "telegram" | "discord" | "email" | "manual";
+
+const appriseModeOptions: { value: "telegram" | "discord" | "email"; label: string }[] = [
+  { value: "telegram", label: "Telegram" },
+  { value: "discord", label: "Discord" },
+  { value: "email", label: "Correo" },
+];
+
+const emailProviderOptions: { value: EmailProvider; label: string }[] = [
+  { value: "gmail", label: "Gmail" },
+  { value: "outlook", label: "Outlook" },
+  { value: "yahoo", label: "Yahoo" },
+  { value: "zoho", label: "Zoho" },
+  { value: "custom", label: "Otro (SMTP)" },
+];
 
 type Tab = "cuenta" | "notificaciones" | "preferencias" | "datos";
 
@@ -57,7 +79,31 @@ export function ConfiguracionForm({
   storedExchangeRate: { rate: number; updatedAt: string } | null;
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("notificaciones");
-  const [appriseUrl, setAppriseUrl] = useState(settings.defaultAppriseUrl ?? "");
+  const rawAppriseUrl = settings.defaultAppriseUrl ?? "";
+  const initialTelegram = parseTelegramAppriseUrl(rawAppriseUrl);
+  const initialIsDiscord = !initialTelegram && isDiscordAppriseUrl(rawAppriseUrl);
+  const initialEmail = !initialTelegram && !initialIsDiscord ? parseEmailAppriseUrl(rawAppriseUrl) : null;
+  const isKnownFormat = Boolean(initialTelegram || initialIsDiscord || initialEmail);
+
+  const [appriseMode, setAppriseMode] = useState<AppriseMode>(() => {
+    if (initialTelegram) return "telegram";
+    if (initialIsDiscord) return "discord";
+    if (initialEmail) return "email";
+    return rawAppriseUrl ? "manual" : "telegram";
+  });
+  const [manualAppriseUrl, setManualAppriseUrl] = useState(isKnownFormat ? "" : rawAppriseUrl);
+  const [telegramToken, setTelegramToken] = useState(initialTelegram?.token ?? "");
+  const [telegramChatId, setTelegramChatId] = useState(initialTelegram?.chatId ?? "");
+  const [telegramThreadId, setTelegramThreadId] = useState(initialTelegram?.threadId ?? "");
+  const [showToken, setShowToken] = useState(false);
+  const [discordWebhookUrl, setDiscordWebhookUrl] = useState(initialIsDiscord ? rawAppriseUrl : "");
+  const [emailAddress, setEmailAddress] = useState(initialEmail?.email ?? "");
+  const [emailPassword, setEmailPassword] = useState(initialEmail?.password ?? "");
+  const [showEmailPassword, setShowEmailPassword] = useState(false);
+  const [emailProvider, setEmailProvider] = useState<EmailProvider>(initialEmail?.provider ?? "gmail");
+  const [emailSmtpHost, setEmailSmtpHost] = useState(initialEmail?.smtpHost ?? "");
+  const [emailSmtpPort, setEmailSmtpPort] = useState(initialEmail?.smtpPort ?? "");
+  const [emailRecipient, setEmailRecipient] = useState(initialEmail?.recipient ?? "");
   const [currency, setCurrency] = useState(settings.defaultCurrency);
   const [monthlyBudget, setMonthlyBudget] = useState(settings.monthlyBudget ? String(settings.monthlyBudget) : "");
   const [theme, setTheme] = useState<ThemePreference>("system");
@@ -85,6 +131,43 @@ export function ConfiguracionForm({
     refreshExchangeRateAction,
     initialRefreshState
   );
+  const [chatIdState, chatIdFormAction, chatIdPending] = useActionState(
+    fetchTelegramChatIdAction,
+    initialChatIdState
+  );
+
+  useEffect(() => {
+    if (chatIdState.chatId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTelegramChatId(chatIdState.chatId);
+    }
+  }, [chatIdState]);
+
+  function computeAppriseUrl(): string {
+    switch (appriseMode) {
+      case "telegram":
+        return telegramToken.trim() && telegramChatId.trim()
+          ? buildTelegramAppriseUrl(telegramToken, telegramChatId, telegramThreadId)
+          : "";
+      case "discord":
+        return discordWebhookUrl.trim();
+      case "email":
+        return emailAddress.trim() && emailPassword.trim()
+          ? buildEmailAppriseUrl({
+              email: emailAddress,
+              password: emailPassword,
+              provider: emailProvider,
+              smtpHost: emailSmtpHost,
+              smtpPort: emailSmtpPort,
+              recipient: emailRecipient,
+            })
+          : "";
+      case "manual":
+        return manualAppriseUrl;
+    }
+  }
+
+  const computedAppriseUrl = computeAppriseUrl();
 
   const inputClass =
     "rounded-[10px] border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-placeholder outline-none focus:border-accent";
@@ -122,22 +205,262 @@ export function ConfiguracionForm({
             <div>
               <h2 className="text-[17px] font-semibold">Notificaciones</h2>
               <p className="mt-1 text-[13px] text-muted">
-                Canal de Apprise usado para avisos de cobro próximo.
+                Canal de Apprise usado para avisos de cobro próximo. Se usa en todas las
+                suscripciones que no tengan su propia URL configurada.
               </p>
             </div>
-            <label className="flex max-w-[480px] flex-col gap-1.5">
-              <span className="text-[13px] font-semibold text-label">URL de Apprise por defecto</span>
-              <input
-                name="defaultAppriseUrl"
-                value={appriseUrl}
-                onChange={(e) => setAppriseUrl(e.target.value)}
-                placeholder="discord://webhook_id/webhook_token"
-                className={inputClass}
-              />
-              <p className="mt-0.5 text-[12.5px] text-muted">
-                Se usa en todas las suscripciones que no tengan su propia URL configurada.
-              </p>
-            </label>
+            <div className="flex flex-col gap-2">
+              <div className="flex w-fit gap-0.5 rounded-[10px] bg-surface-muted p-1">
+                {appriseModeOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setAppriseMode(option.value)}
+                    className={
+                      appriseMode === option.value
+                        ? "rounded-lg bg-accent px-4 py-2 text-[13px] font-semibold text-white"
+                        : "rounded-lg px-4 py-2 text-[13px] font-medium text-muted-strong"
+                    }
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              {appriseMode === "manual" ? (
+                <button
+                  type="button"
+                  onClick={() => setAppriseMode("telegram")}
+                  className="self-start text-[12px] font-medium text-muted hover:text-accent hover:underline"
+                >
+                  ← Volver a las opciones rápidas
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setAppriseMode("manual")}
+                  className="self-start text-[12px] font-medium text-muted hover:text-accent hover:underline"
+                >
+                  ¿Usás otro servicio (Slack, ntfy, Matrix, etc.)? Configuralo con una URL de Apprise
+                </button>
+              )}
+            </div>
+
+            <input type="hidden" name="defaultAppriseUrl" value={computedAppriseUrl} />
+            <input type="hidden" name="botToken" value={telegramToken} />
+
+            {appriseMode === "telegram" ? (
+              <div className="flex max-w-[480px] flex-col gap-4">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-semibold text-label">Token de bot</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type={showToken ? "text" : "password"}
+                      value={telegramToken}
+                      onChange={(e) => setTelegramToken(e.target.value)}
+                      placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+                      className={`${inputClass} flex-1`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowToken((v) => !v)}
+                      className="shrink-0 text-[12.5px] font-semibold text-accent hover:underline"
+                    >
+                      {showToken ? "Ocultar" : "Mostrar"}
+                    </button>
+                  </div>
+                  <p className="mt-0.5 text-[12.5px] text-muted">
+                    Lo conseguís hablando con{" "}
+                    <a
+                      href="https://t.me/BotFather"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline"
+                    >
+                      @BotFather
+                    </a>{" "}
+                    en Telegram.
+                  </p>
+                </label>
+
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-semibold text-label">ID de chat</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={telegramChatId}
+                      onChange={(e) => setTelegramChatId(e.target.value)}
+                      placeholder="123456789"
+                      className={`${inputClass} flex-1`}
+                    />
+                    <button
+                      type="submit"
+                      formAction={chatIdFormAction}
+                      disabled={chatIdPending}
+                      className="shrink-0 rounded-[10px] border border-border px-3.5 py-2.5 text-[13px] font-semibold text-muted-strong hover:text-foreground disabled:opacity-50"
+                    >
+                      {chatIdPending ? "Buscando..." : "Obtener automáticamente"}
+                    </button>
+                  </div>
+                  <p className="mt-0.5 text-[12.5px] text-muted">
+                    Escribile un mensaje a tu bot (o al grupo, con el bot ya agregado) y usá el
+                    botón — necesita al menos un mensaje previo para encontrarlo.
+                  </p>
+                  {chatIdState.error && (
+                    <InlineMessage pending={chatIdPending} tone="error" text={chatIdState.error} />
+                  )}
+                  {chatIdState.chatId && (
+                    <InlineMessage
+                      pending={chatIdPending}
+                      tone="success"
+                      text={`Encontrado: ${chatIdState.chatId}`}
+                    />
+                  )}
+                </label>
+
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-semibold text-label">
+                    ID del hilo de mensajes (opcional)
+                  </span>
+                  <input
+                    value={telegramThreadId}
+                    onChange={(e) => setTelegramThreadId(e.target.value)}
+                    placeholder="Solo para supergrupos con temas"
+                    className={inputClass}
+                  />
+                </label>
+
+                {computedAppriseUrl && (
+                  <p className="truncate text-[11.5px] text-muted" title={computedAppriseUrl}>
+                    URL generada: {computedAppriseUrl}
+                  </p>
+                )}
+              </div>
+            ) : appriseMode === "discord" ? (
+              <label className="flex max-w-[480px] flex-col gap-1.5">
+                <span className="text-[13px] font-semibold text-label">URL del Webhook de Discord</span>
+                <input
+                  value={discordWebhookUrl}
+                  onChange={(e) => setDiscordWebhookUrl(e.target.value)}
+                  placeholder="https://discord.com/api/webhooks/123456789/AbCdEf..."
+                  className={inputClass}
+                />
+                <p className="mt-0.5 text-[12.5px] text-muted">
+                  En el canal de Discord: Configuración → Integraciones → Webhooks → Copiar URL del
+                  Webhook.
+                </p>
+              </label>
+            ) : appriseMode === "email" ? (
+              <div className="flex max-w-[480px] flex-col gap-4">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-semibold text-label">Correo</span>
+                  <input
+                    type="email"
+                    value={emailAddress}
+                    onChange={(e) => setEmailAddress(e.target.value)}
+                    placeholder="tu_correo@gmail.com"
+                    className={inputClass}
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-semibold text-label">Contraseña de aplicación</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type={showEmailPassword ? "text" : "password"}
+                      value={emailPassword}
+                      onChange={(e) => setEmailPassword(e.target.value)}
+                      placeholder="••••••••••••••••"
+                      className={`${inputClass} flex-1`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowEmailPassword((v) => !v)}
+                      className="shrink-0 text-[12.5px] font-semibold text-accent hover:underline"
+                    >
+                      {showEmailPassword ? "Ocultar" : "Mostrar"}
+                    </button>
+                  </div>
+                  <p className="mt-0.5 text-[12.5px] text-muted">
+                    Gmail, Yahoo y Outlook requieren una contraseña de aplicación, no la de tu
+                    cuenta — se genera desde la configuración de seguridad de cada servicio.
+                  </p>
+                </label>
+
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-semibold text-label">Proveedor</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {emailProviderOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setEmailProvider(option.value)}
+                        className={
+                          emailProvider === option.value
+                            ? "rounded-full bg-accent px-3.5 py-1.5 text-[13px] font-semibold text-white"
+                            : "rounded-full bg-surface-muted px-3.5 py-1.5 text-[13px] font-medium text-muted-strong"
+                        }
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-0.5 text-[12.5px] text-muted">
+                    Tiene que coincidir con el dominio de tu correo (ej. si es @gmail.com, elegí
+                    Gmail) — si no coincide, el envío va a fallar.
+                  </p>
+                </div>
+
+                {emailProvider === "custom" && (
+                  <div className="flex gap-3">
+                    <label className="flex flex-1 flex-col gap-1.5">
+                      <span className="text-[13px] font-semibold text-label">Servidor SMTP</span>
+                      <input
+                        value={emailSmtpHost}
+                        onChange={(e) => setEmailSmtpHost(e.target.value)}
+                        placeholder="mail.tudominio.com"
+                        className={inputClass}
+                      />
+                    </label>
+                    <label className="flex w-24 flex-col gap-1.5">
+                      <span className="text-[13px] font-semibold text-label">Puerto</span>
+                      <input
+                        value={emailSmtpPort}
+                        onChange={(e) => setEmailSmtpPort(e.target.value)}
+                        placeholder="587"
+                        className={inputClass}
+                      />
+                    </label>
+                  </div>
+                )}
+
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-semibold text-label">
+                    Enviar a (opcional, si es distinto a tu correo)
+                  </span>
+                  <input
+                    type="email"
+                    value={emailRecipient}
+                    onChange={(e) => setEmailRecipient(e.target.value)}
+                    placeholder="destino@ejemplo.com"
+                    className={inputClass}
+                  />
+                </label>
+              </div>
+            ) : (
+              <label className="flex max-w-[480px] flex-col gap-1.5">
+                <span className="text-[13px] font-semibold text-label">URL de Apprise por defecto</span>
+                <input
+                  value={manualAppriseUrl}
+                  onChange={(e) => setManualAppriseUrl(e.target.value)}
+                  placeholder="tgram://bot_token/chat_id/"
+                  className={inputClass}
+                />
+                <p className="mt-0.5 text-[12.5px] text-muted">
+                  Para cualquier otro servicio de Apprise (Slack, ntfy, Matrix, etc.) — más de 80
+                  opciones.
+                </p>
+              </label>
+            )}
+
             <div className="flex max-w-[480px] items-center gap-3 border-t border-border-soft pt-4">
               <button
                 type="submit"
