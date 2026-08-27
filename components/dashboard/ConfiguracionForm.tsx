@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { ChevronDownIcon } from "@/components/icons";
 import { CuentaTab } from "@/components/dashboard/CuentaTab";
+import { DatosTab } from "@/components/dashboard/DatosTab";
 import type { Settings } from "@/lib/settings";
 import { formatDate, formatMoney } from "@/lib/format";
 import {
@@ -34,12 +35,13 @@ const initialSettingsState: SettingsState = {};
 const initialTestState: TestNotificationState = {};
 const initialRefreshState: RefreshExchangeRateState = {};
 
-type Tab = "cuenta" | "notificaciones" | "preferencias";
+type Tab = "cuenta" | "notificaciones" | "preferencias" | "datos";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "cuenta", label: "Cuenta" },
   { id: "notificaciones", label: "Notificaciones" },
   { id: "preferencias", label: "Preferencias" },
+  { id: "datos", label: "Datos" },
 ];
 
 export function ConfiguracionForm({
@@ -56,6 +58,7 @@ export function ConfiguracionForm({
   const [activeTab, setActiveTab] = useState<Tab>("notificaciones");
   const [appriseUrl, setAppriseUrl] = useState(settings.defaultAppriseUrl ?? "");
   const [currency, setCurrency] = useState(settings.defaultCurrency);
+  const [monthlyBudget, setMonthlyBudget] = useState(settings.monthlyBudget ? String(settings.monthlyBudget) : "");
   const [theme, setTheme] = useState<ThemePreference>("system");
   const [exchangeRateMode, setExchangeRateMode] = useState(settings.exchangeRateMode);
 
@@ -107,6 +110,10 @@ export function ConfiguracionForm({
       <div className="flex-1 rounded-2xl border border-border bg-surface p-5 sm:p-8">
         <div className={activeTab === "cuenta" ? "block" : "hidden"}>
           <CuentaTab username={username} signOutAction={signOutAction} />
+        </div>
+
+        <div className={activeTab === "datos" ? "block" : "hidden"}>
+          <DatosTab />
         </div>
 
         <form action={settingsFormAction}>
@@ -169,6 +176,24 @@ export function ConfiguracionForm({
                 </select>
                 <ChevronDownIcon className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-muted" />
               </div>
+            </label>
+
+            <label className="flex max-w-[480px] flex-col gap-1.5 border-t border-border-soft pt-6">
+              <span className="text-[13px] font-semibold text-label">Presupuesto mensual (opcional)</span>
+              <input
+                name="monthlyBudget"
+                type="number"
+                min="0"
+                step="1"
+                value={monthlyBudget}
+                onChange={(e) => setMonthlyBudget(e.target.value)}
+                placeholder={`Ej. 50000 (${currency})`}
+                className={`${inputClass} w-60`}
+              />
+              <p className="mt-0.5 text-[12.5px] text-muted">
+                Te avisamos por Apprise si el gasto mensual de tus suscripciones activas supera este
+                monto, en tu moneda por defecto. Dejar vacío para desactivar.
+              </p>
             </label>
 
             <div className="flex max-w-[480px] flex-col gap-3 border-t border-border-soft pt-6">
@@ -273,7 +298,7 @@ export function ConfiguracionForm({
             </div>
           </div>
 
-          {activeTab !== "cuenta" && (
+          {activeTab !== "cuenta" && activeTab !== "datos" && (
             <div className="mt-6 flex items-center justify-end gap-3">
               {settingsState.success && (
                 <span className="text-[13px] font-medium text-success">Cambios guardados.</span>
