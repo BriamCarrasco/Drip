@@ -11,8 +11,10 @@ export async function register() {
   cron.schedule(
     "0 9 * * *",
     () => {
-      runDailyCheck().then(({ checked, notified }) => {
-        console.log(`[scheduler] revisadas ${checked} suscripciones, ${notified} notificaciones enviadas`);
+      runDailyCheck().then(({ checked, notified, rolled, budgetAlerted }) => {
+        console.log(
+          `[scheduler] revisadas ${checked} suscripciones, ${rolled} fechas avanzadas, ${notified} notificaciones enviadas, ${budgetAlerted} alertas de presupuesto`
+        );
       });
     },
     { timezone: process.env.TZ || "America/Santiago" }

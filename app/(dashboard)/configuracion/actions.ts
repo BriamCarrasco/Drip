@@ -25,6 +25,13 @@ const settingsSchema = z.object({
     .refine((value) => value === null || (Number.isFinite(value) && value > 0), {
       message: "El tipo de cambio debe ser un número positivo.",
     }),
+  monthlyBudget: z
+    .string()
+    .optional()
+    .transform((value) => (value && value.trim() !== "" ? Number(value) : null))
+    .refine((value) => value === null || (Number.isFinite(value) && value > 0), {
+      message: "El presupuesto mensual debe ser un número positivo.",
+    }),
 });
 
 export type SettingsState = { error?: string; success?: boolean };
@@ -45,13 +52,15 @@ export async function updateSettingsAction(
     defaultCurrency: formData.get("defaultCurrency"),
     exchangeRateMode: formData.get("exchangeRateMode"),
     manualExchangeRate: formData.get("manualExchangeRate") || undefined,
+    monthlyBudget: formData.get("monthlyBudget") || undefined,
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
   }
 
-  const { defaultAppriseUrl, defaultCurrency, exchangeRateMode, manualExchangeRate } = parsed.data;
+  const { defaultAppriseUrl, defaultCurrency, exchangeRateMode, manualExchangeRate, monthlyBudget } =
+    parsed.data;
 
   db.insert(settings)
     .values({
@@ -60,6 +69,8 @@ export async function updateSettingsAction(
       defaultCurrency,
       exchangeRateMode,
       manualExchangeRate,
+      monthlyBudget,
+      budgetAlertSentFor: null,
     })
     .onConflictDoUpdate({
       target: settings.userId,
@@ -68,6 +79,8 @@ export async function updateSettingsAction(
         defaultCurrency,
         exchangeRateMode,
         manualExchangeRate,
+        monthlyBudget,
+        budgetAlertSentFor: null,
       },
     })
     .run();
