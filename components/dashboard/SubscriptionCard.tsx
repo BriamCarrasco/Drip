@@ -24,19 +24,18 @@ export function SubscriptionCard({ subscription }: { subscription: SubscriptionR
             </span>
           )}
         </div>
-        {subscription.description && (
-          <p className="mt-0.5 truncate text-[12.5px] text-muted">{subscription.description}</p>
-        )}
+        <p className={`mt-0.5 truncate text-[12.5px] text-muted ${subscription.description ? "" : "invisible"}`}>
+          {subscription.description || " "}
+        </p>
         <p className="mt-1.5 font-heading text-[21px] font-semibold">
           {formatMoney(subscription.amount, subscription.currency)}
           {isYearly && <span className="text-xs font-medium text-muted"> /año</span>}
         </p>
-        {subscription.splitCount > 1 && (
-          <p className="mt-0.5 text-[12px] text-muted">
-            Tu parte: {formatMoney(subscription.amount / subscription.splitCount, subscription.currency)}{" "}
-            (÷{subscription.splitCount})
-          </p>
-        )}
+        <p className={`mt-0.5 text-[12px] text-muted ${subscription.splitCount > 1 ? "" : "invisible"}`}>
+          {subscription.splitCount > 1
+            ? `Tu parte: ${formatMoney(subscription.amount / subscription.splitCount, subscription.currency)} (÷${subscription.splitCount})`
+            : " "}
+        </p>
       </div>
 
       <div className="flex items-center gap-1.5 border-t border-border-soft pt-2.5 text-[12.5px] text-muted">
