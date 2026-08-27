@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { SubscriptionAvatar } from "@/components/dashboard/SubscriptionAvatar";
+import { CheckIcon } from "@/components/icons";
 import { formatDate, formatMoney } from "@/lib/format";
 import { advanceDate } from "@/lib/calendar";
 import type { SubscriptionRow } from "@/lib/subscriptions";
@@ -23,7 +24,9 @@ export function MarkAsPaidModal({
 }) {
   const { openEditModal } = useSubscriptionModal();
   const [visible, setVisible] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const submittedRef = useRef(false);
 
   useEffect(() => {
     if (!closing) {
@@ -38,10 +41,14 @@ export function MarkAsPaidModal({
   }, [closing, onClosed]);
 
   function handleConfirm() {
+    if (submittedRef.current) return;
+    submittedRef.current = true;
+
     startTransition(() => {
       markAsPaidAction(subscription.id);
     });
-    onCancel();
+    setConfirmed(true);
+    setTimeout(onCancel, 700);
   }
 
   function handleEditFull() {
@@ -81,46 +88,55 @@ export function MarkAsPaidModal({
           </div>
         </div>
 
-        <div className="flex flex-col gap-1 rounded-[12px] bg-surface-muted p-4">
-          <p className="text-[13px] text-muted">
-            {subscription.isTrial ? "Se cobrará al terminar la prueba" : "Monto a registrar"}
-          </p>
-          <p className="font-heading text-[22px] font-semibold">
-            {formatMoney(subscription.amount, subscription.currency)}
-          </p>
-        </div>
+        {confirmed ? (
+          <div className="flex items-center justify-center gap-2 rounded-[12px] bg-success-tint py-5 text-success">
+            <CheckIcon />
+            <span className="text-sm font-semibold">Marcada como pagada</span>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-col gap-1 rounded-[12px] bg-surface-muted p-4">
+              <p className="text-[13px] text-muted">
+                {subscription.isTrial ? "Se cobrará al terminar la prueba" : "Monto a registrar"}
+              </p>
+              <p className="font-heading text-[22px] font-semibold">
+                {formatMoney(subscription.amount, subscription.currency)}
+              </p>
+            </div>
 
-        <p className="text-[13px] text-muted">
-          {subscription.isTrial
-            ? `Se marca el fin de la prueba gratuita y el próximo cobro pasa al ${formatDate(nextDate.toISOString().slice(0, 10))}.`
-            : `El próximo cobro pasa al ${formatDate(nextDate.toISOString().slice(0, 10))}.`}
-        </p>
+            <p className="text-[13px] text-muted">
+              {subscription.isTrial
+                ? `Se marca el fin de la prueba gratuita y el próximo cobro pasa al ${formatDate(nextDate.toISOString().slice(0, 10))}.`
+                : `El próximo cobro pasa al ${formatDate(nextDate.toISOString().slice(0, 10))}.`}
+            </p>
 
-        <button
-          type="button"
-          onClick={handleEditFull}
-          className="self-start text-[13px] font-semibold text-accent hover:underline"
-        >
-          Ver detalles
-        </button>
+            <button
+              type="button"
+              onClick={handleEditFull}
+              className="self-start text-[13px] font-semibold text-accent hover:underline"
+            >
+              Ver detalles
+            </button>
 
-        <div className="flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-[10px] px-4 py-2.5 text-sm font-semibold text-muted-strong hover:text-foreground"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={isPending}
-            className="rounded-[10px] bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
-          >
-            Marcar como pagada
-          </button>
-        </div>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded-[10px] px-4 py-2.5 text-sm font-semibold text-muted-strong hover:text-foreground"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={isPending}
+                className="rounded-[10px] bg-accent px-5 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
+              >
+                Marcar como pagada
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

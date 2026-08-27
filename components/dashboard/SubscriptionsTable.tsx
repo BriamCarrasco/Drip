@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { CheckIcon, ChevronDownIcon, PencilIcon, SearchIcon, TrashIcon } from "@/components/icons";
 import { formatMoney, formatDate } from "@/lib/format";
 import { categorySuggestions } from "@/lib/categories";
@@ -38,6 +38,7 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
   const [isPending, startTransition] = useTransition();
   const [justPaidId, setJustPaidId] = useState<number | null>(null);
   const [bouncingId, setBouncingId] = useState<number | null>(null);
+  const markingPaidRef = useRef(new Set<number>());
 
   const categories = useMemo(() => {
     const fromData = subscriptions.map((sub) => sub.category);
@@ -73,6 +74,10 @@ export function SubscriptionsTable({ subscriptions }: { subscriptions: Subscript
   }
 
   function handleMarkAsPaid(id: number) {
+    if (markingPaidRef.current.has(id)) return;
+    markingPaidRef.current.add(id);
+    setTimeout(() => markingPaidRef.current.delete(id), 1500);
+
     setJustPaidId(id);
     setTimeout(() => setJustPaidId(null), 400);
     startTransition(() => {
