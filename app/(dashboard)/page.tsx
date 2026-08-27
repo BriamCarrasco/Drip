@@ -5,7 +5,7 @@ import { getEffectiveUsdClpRate } from "@/lib/exchange-rate";
 import { monthlyTotalsByCurrency } from "@/lib/subscription-calculations";
 import { summarizeTotals } from "@/lib/currency-summary";
 import { StatTile } from "@/components/dashboard/StatTile";
-import { SubscriptionCard } from "@/components/dashboard/SubscriptionCard";
+import { SubscriptionsGrid } from "@/components/dashboard/SubscriptionsGrid";
 import { EmptyHomeState } from "@/components/dashboard/EmptyHomeState";
 import { CalendarIcon, TrendingUpIcon, WalletIcon } from "@/components/icons";
 import { formatDate } from "@/lib/format";
@@ -66,17 +66,7 @@ export default async function HomePage() {
           Todavía no tienes suscripciones activas.
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
-          {active.map((sub, index) => (
-            <div
-              key={sub.id}
-              className="animate-card-in"
-              style={{ animationDelay: `${Math.min(index, 10) * 40}ms` }}
-            >
-              <SubscriptionCard subscription={sub} />
-            </div>
-          ))}
-        </div>
+        <SubscriptionsGrid subscriptions={active} />
       )}
     </div>
   );
