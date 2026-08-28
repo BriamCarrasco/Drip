@@ -29,6 +29,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle/migrations ./drizzle/migrations
+COPY --chown=nextjs:nodejs docker-entrypoint.sh ./docker-entrypoint.sh
 
 USER nextjs
 EXPOSE 3000
@@ -37,4 +38,5 @@ VOLUME ["/app/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD node -e "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
+ENTRYPOINT ["/bin/sh", "/app/docker-entrypoint.sh"]
 CMD ["node", "server.js"]

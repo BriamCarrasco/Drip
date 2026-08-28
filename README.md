@@ -43,8 +43,10 @@ Requisitos: Docker y Docker Compose.
        pull_policy: always
        ports:
          - "3000:3000"
-       env_file:
-         - .env
+       environment:
+         AUTH_SECRET: ${AUTH_SECRET:-}
+         REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
+         TZ: ${TZ:-America/Santiago}
        volumes:
          - drip-data:/app/data
        restart: unless-stopped
@@ -53,31 +55,33 @@ Requisitos: Docker y Docker Compose.
      drip-data:
    ```
 
-2. Creá un `.env` al lado, con al menos un `AUTH_SECRET`:
-
-   ```bash
-   echo "AUTH_SECRET=$(openssl rand -base64 33)" > .env
-   echo "REGISTRATION_ENABLED=false" >> .env
-   echo "TZ=America/Santiago" >> .env
-   ```
-
-3. Levantá:
+2. Levantá:
 
    ```bash
    docker compose up -d
    ```
 
-4. Abrí [http://localhost:3000](http://localhost:3000), creá tu usuario y empezá a
+3. Abrí [http://localhost:3000](http://localhost:3000), creá tu usuario y empezá a
    registrar suscripciones. Para actualizar más adelante: `docker compose pull && docker compose up -d`.
+
+En el primer arranque, si no definiste `AUTH_SECRET`, la app genera uno y lo guarda en el
+volumen (`/app/data/.auth-secret`). Para fijarlo vos mismo — recomendado si vas a correr
+varias instancias o restaurar el backup en otra máquina — creá un `.env` al lado del
+`compose.yaml` (docker compose lo toma solo):
+
+   ```bash
+   echo "AUTH_SECRET=$(openssl rand -base64 33)" > .env
+   ```
 
 ### Opción B — build desde el código
 
 ```bash
 git clone https://github.com/BriamCarrasco/Drip.git drip && cd drip
-cp .env.example .env
-sed -i "s|^AUTH_SECRET=.*|AUTH_SECRET=$(openssl rand -base64 33)|" .env
 docker compose up -d --build
 ```
+
+Para fijar variables (`AUTH_SECRET`, `REGISTRATION_ENABLED`, `TZ`), copiá `.env.example` a
+`.env` antes del `up`.
 
 ### Persistencia
 
@@ -98,7 +102,7 @@ por `./data:/app/data` (y quitá el bloque `volumes:`), y hacé una vez
 
 | Variable               | Descripción                                                                                          | Default                |
 | ---------------------- | --------------------------------------------------------------------------------------------------- | ---------------------- |
-| `AUTH_SECRET`          | Secreto que usa Auth.js para firmar las sesiones. **Obligatorio.** Generalo con `openssl rand -base64 33`. | —                      |
+| `AUTH_SECRET`          | Secreto que usa Auth.js para firmar las sesiones. Si no lo definís, se genera uno en el primer arranque y se guarda en el volumen (`/app/data/.auth-secret`). Definilo explícito para multi-instancia o restaurar backups en otra máquina. | autogenerado           |
 | `REGISTRATION_ENABLED` | Permite crear cuentas nuevas desde `/register`. Ponelo en `false` para cerrar el registro una vez creadas las cuentas. | `true`                 |
 | `TZ`                   | Zona horaria usada por el cron diario de notificaciones.                                             | `America/Santiago`     |
 | `DATABASE_URL`         | Opcional. Ruta del archivo SQLite. En Docker no hace falta tocarlo.                                  | `file:./data/drip.db`  |
