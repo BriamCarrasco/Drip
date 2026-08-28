@@ -14,7 +14,7 @@ import { advanceDate } from "@/lib/calendar";
 import { sendNotification } from "@/lib/apprise";
 import { refreshUsdClpRate, getEffectiveUsdClpRate } from "@/lib/exchange-rate";
 import { combineTotals } from "@/lib/currency-summary";
-import { monthlyTotalsByCurrency } from "@/lib/subscription-calculations";
+import { monthlyTotalsByCurrency, normalizeSplitCount } from "@/lib/subscription-calculations";
 import { formatMoney, formatDate } from "@/lib/format";
 
 function todayIso(): string {
@@ -28,7 +28,7 @@ export function rollOverdueSubscriptions(today: string): number {
   for (const sub of overdue) {
     let nextDate = sub.nextBillingDate;
     let guard = 0;
-    const splitCount = sub.splitCount > 0 ? sub.splitCount : 1;
+    const splitCount = normalizeSplitCount(sub.splitCount);
 
     while (nextDate < today && guard < 500) {
       recordPayment(sub.id, sub.amount / splitCount, sub.currency, `${nextDate}T00:00:00.000Z`);

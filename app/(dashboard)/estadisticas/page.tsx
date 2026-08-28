@@ -15,6 +15,8 @@ import {
 } from "@/lib/insights";
 import { StatTile } from "@/components/dashboard/StatTile";
 import { SubscriptionAvatar } from "@/components/dashboard/SubscriptionAvatar";
+import { EmptyStateNote } from "@/components/dashboard/EmptyStateNote";
+import { PageContainer } from "@/components/dashboard/PageContainer";
 import { BarChartIcon, TrendingUpIcon, WalletIcon } from "@/components/icons";
 import { formatMoney } from "@/lib/format";
 
@@ -29,17 +31,15 @@ export default async function EstadisticasPage() {
 
   if (subscriptions.length === 0) {
     return (
-      <div className="flex flex-col gap-6 px-4 py-6 sm:gap-7 sm:px-8 sm:py-9 lg:px-14">
+      <PageContainer>
         <div>
           <h1 className="font-heading text-2xl font-semibold">Estadísticas</h1>
           <p className="mt-1.5 text-sm text-muted">
             Solo cuenta lo que confirmaste como pagado, a mano o porque venció automáticamente.
           </p>
         </div>
-        <p className="rounded-2xl border border-border bg-surface px-6 py-10 text-center text-sm text-muted">
-          Todavía no tienes suscripciones registradas.
-        </p>
-      </div>
+        <EmptyStateNote>Todavía no tienes suscripciones registradas.</EmptyStateNote>
+      </PageContainer>
     );
   }
 
@@ -134,7 +134,7 @@ export default async function EstadisticasPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 px-4 py-6 sm:gap-7 sm:px-8 sm:py-9 lg:px-14">
+    <PageContainer>
       <div>
         <h1 className="font-heading text-2xl font-semibold">Estadísticas</h1>
         <p className="mt-1.5 text-sm text-muted">
@@ -199,15 +199,15 @@ export default async function EstadisticasPage() {
           </div>
 
           {!fxEnabled ? (
-            <p className="rounded-2xl border border-border bg-surface px-6 py-6 text-center text-sm text-muted">
+            <EmptyStateNote compact>
               Activa el tipo de cambio automático en Configuración → Preferencias para ver este
               análisis.
-            </p>
+            </EmptyStateNote>
           ) : fxImpact.length === 0 ? (
-            <p className="rounded-2xl border border-border bg-surface px-6 py-6 text-center text-sm text-muted">
+            <EmptyStateNote compact>
               Necesitamos al menos {MIN_DAYS_FOR_FX_IMPACT} días de historial en tus suscripciones
               en {foreignSubs[0].currency} para calcular esto.
-            </p>
+            </EmptyStateNote>
           ) : (
             <div className="flex flex-col gap-2">
               {fxImpact.map((row) => (
@@ -242,6 +242,6 @@ export default async function EstadisticasPage() {
           )}
         </>
       )}
-    </div>
+    </PageContainer>
   );
 }

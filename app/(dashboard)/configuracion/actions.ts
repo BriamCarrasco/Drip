@@ -3,10 +3,11 @@
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
-import { signOut, auth } from "@/auth";
+import { signOut } from "@/auth";
 import { db } from "@/lib/db";
 import { settings, users } from "@/drizzle/schema";
+import { requireUserId } from "@/lib/require-user-id";
+import { revalidateSettingsPaths } from "@/lib/revalidate";
 import { sendNotification } from "@/lib/apprise";
 import { refreshUsdClpRate } from "@/lib/exchange-rate";
 
@@ -35,12 +36,6 @@ const settingsSchema = z.object({
 });
 
 export type SettingsState = { error?: string; success?: boolean };
-
-async function requireUserId(): Promise<number> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("No autenticado");
-  return Number(session.user.id);
-}
 
 export async function updateSettingsAction(
   _prevState: SettingsState,
@@ -85,9 +80,7 @@ export async function updateSettingsAction(
     })
     .run();
 
-  revalidatePath("/configuracion");
-  revalidatePath("/");
-  revalidatePath("/estadisticas");
+  revalidateSettingsPaths();
   return { success: true };
 }
 
@@ -100,9 +93,7 @@ export async function refreshExchangeRateAction(_prevState: RefreshExchangeRateS
     return { error: "No se pudo obtener el tipo de cambio. Revisa tu conexión a internet." };
   }
 
-  revalidatePath("/configuracion");
-  revalidatePath("/");
-  revalidatePath("/estadisticas");
+  revalidateSettingsPaths();
   return { success: true, rate };
 }
 

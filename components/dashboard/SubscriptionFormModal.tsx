@@ -5,6 +5,7 @@ import { ChevronDownIcon, XIcon } from "@/components/icons";
 import { categorySuggestions } from "@/lib/categories";
 import { knownServices, type KnownService } from "@/lib/known-services";
 import { SubscriptionAvatar } from "@/components/dashboard/SubscriptionAvatar";
+import { inputClass, labelClass } from "@/components/dashboard/form-styles";
 import { formatDate, formatMoney } from "@/lib/format";
 import { totalFromPaymentLog, type PaymentLogEntry } from "@/lib/payment-log-utils";
 import type { SubscriptionRow } from "@/lib/subscriptions";
@@ -186,9 +187,6 @@ function SubscriptionForm({
     });
   }
 
-  const inputClass =
-    "rounded-[10px] border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-placeholder outline-none focus:border-accent";
-  const labelClass = "text-[13px] font-semibold text-label";
   const totalSpent = totalFromPaymentLog(paymentLogEntries);
 
   return (

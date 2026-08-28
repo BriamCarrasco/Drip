@@ -7,6 +7,8 @@ import { summarizeTotals } from "@/lib/currency-summary";
 import { StatTile } from "@/components/dashboard/StatTile";
 import { SubscriptionsGrid } from "@/components/dashboard/SubscriptionsGrid";
 import { EmptyHomeState } from "@/components/dashboard/EmptyHomeState";
+import { EmptyStateNote } from "@/components/dashboard/EmptyStateNote";
+import { PageContainer } from "@/components/dashboard/PageContainer";
 import { CalendarIcon, TrendingUpIcon, WalletIcon } from "@/components/icons";
 import { formatDate } from "@/lib/format";
 
@@ -35,7 +37,7 @@ export default async function HomePage() {
   const next = active[0];
 
   return (
-    <div className="flex flex-col gap-6 px-4 py-6 sm:gap-7 sm:px-8 sm:py-9 lg:px-14">
+    <PageContainer>
       <div className="flex flex-col gap-4 sm:flex-row sm:gap-5">
         <StatTile
           icon={<WalletIcon />}
@@ -62,12 +64,10 @@ export default async function HomePage() {
       </div>
 
       {active.length === 0 ? (
-        <p className="rounded-2xl border border-border bg-surface px-6 py-10 text-center text-sm text-muted">
-          Todavía no tienes suscripciones activas.
-        </p>
+        <EmptyStateNote>Todavía no tienes suscripciones activas.</EmptyStateNote>
       ) : (
         <SubscriptionsGrid subscriptions={active} />
       )}
-    </div>
+    </PageContainer>
   );
 }

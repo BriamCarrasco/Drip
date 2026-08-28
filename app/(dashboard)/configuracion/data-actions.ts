@@ -1,15 +1,9 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { auth } from "@/auth";
+import { requireUserId } from "@/lib/require-user-id";
+import { revalidateSubscriptionPaths } from "@/lib/revalidate";
 import { buildExportForUser, importDataForUser, parseImportPayload } from "@/lib/data-export";
 import type { DataExport } from "@/lib/data-export";
-
-async function requireUserId(): Promise<number> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("No autenticado");
-  return Number(session.user.id);
-}
 
 export async function exportDataAction(): Promise<DataExport> {
   const userId = await requireUserId();
@@ -43,10 +37,7 @@ export async function importDataAction(payload: unknown): Promise<ImportDataStat
 
   const imported = importDataForUser(userId, result.data);
 
-  revalidatePath("/");
-  revalidatePath("/suscripciones");
-  revalidatePath("/calendario");
-  revalidatePath("/estadisticas");
+  revalidateSubscriptionPaths();
 
   return {
     success: true,

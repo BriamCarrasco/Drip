@@ -1,5 +1,9 @@
 import type { BillingCycle } from "@/drizzle/schema";
 
+export function normalizeSplitCount(splitCount: number | null | undefined): number {
+  return splitCount && splitCount > 0 ? splitCount : 1;
+}
+
 export function monthlyEquivalent(input: {
   amount: number;
   billingCycle: BillingCycle;
@@ -30,7 +34,7 @@ export function monthlyTotalsByCurrency(
 ): { currency: string; total: number }[] {
   const totals = new Map<string, number>();
   for (const sub of subs) {
-    const splitCount = sub.splitCount && sub.splitCount > 0 ? sub.splitCount : 1;
+    const splitCount = normalizeSplitCount(sub.splitCount);
     const cost = monthlyEquivalent({
       amount: sub.amount / splitCount,
       billingCycle: sub.billingCycle,

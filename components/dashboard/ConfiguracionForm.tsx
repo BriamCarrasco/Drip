@@ -5,6 +5,7 @@ import { ChevronDownIcon } from "@/components/icons";
 import { CuentaTab } from "@/components/dashboard/CuentaTab";
 import { DatosTab } from "@/components/dashboard/DatosTab";
 import { InlineMessage } from "@/components/dashboard/InlineMessage";
+import { inputClass } from "@/components/dashboard/form-styles";
 import type { Settings } from "@/lib/settings";
 import { formatDate, formatMoney } from "@/lib/format";
 import { buildTelegramAppriseUrl, parseTelegramAppriseUrl } from "@/lib/telegram-apprise";
@@ -168,9 +169,6 @@ export function ConfiguracionForm({
   }
 
   const computedAppriseUrl = computeAppriseUrl();
-
-  const inputClass =
-    "rounded-[10px] border border-border px-3.5 py-2.5 text-sm text-foreground placeholder:text-placeholder outline-none focus:border-accent";
 
   return (
     <div className="flex flex-col gap-4 md:flex-row md:gap-10">

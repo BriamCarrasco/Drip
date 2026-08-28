@@ -2,14 +2,15 @@
 
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { subscriptions } from "@/drizzle/schema";
-import { auth } from "@/auth";
+import { requireUserId } from "@/lib/require-user-id";
+import { revalidateSubscriptionPaths } from "@/lib/revalidate";
 import { getPriceHistory, recordPriceChange, type PriceHistoryEntry } from "@/lib/price-history";
 import { getStatusHistory, recordStatusChange, type StatusHistoryEntry } from "@/lib/status-history";
 import { getPaymentLog, recordPayment, type PaymentLogEntry } from "@/lib/payment-log";
 import { advanceDate } from "@/lib/calendar";
+import { normalizeSplitCount } from "@/lib/subscription-calculations";
 
 const subscriptionInputSchema = z.object({
   name: z.string().min(1),
@@ -36,17 +37,12 @@ const subscriptionInputSchema = z.object({
 
 export type SubscriptionInput = z.infer<typeof subscriptionInputSchema>;
 
-async function requireUserId(): Promise<number> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("No autenticado");
-  return Number(session.user.id);
-}
-
-function revalidateSubscriptionPaths() {
-  revalidatePath("/");
-  revalidatePath("/suscripciones");
-  revalidatePath("/calendario");
-  revalidatePath("/estadisticas");
+function getOwnedSubscription(id: number, userId: number) {
+  return db
+    .select()
+    .from(subscriptions)
+    .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId)))
+    .get();
 }
 
 function parseSubscriptionInput(input: SubscriptionInput) {
@@ -76,15 +72,7 @@ export async function updateSubscriptionAction(id: number, input: SubscriptionIn
   const userId = await requireUserId();
   const data = parseSubscriptionInput(input);
 
-  const current = db
-    .select({
-      amount: subscriptions.amount,
-      currency: subscriptions.currency,
-      isActive: subscriptions.isActive,
-    })
-    .from(subscriptions)
-    .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId)))
-    .get();
+  const current = getOwnedSubscription(id, userId);
 
   db.update(subscriptions)
     .set({ ...data, updatedAt: sql`(current_timestamp)` })
@@ -104,11 +92,7 @@ export async function updateSubscriptionAction(id: number, input: SubscriptionIn
 
 export async function toggleSubscriptionActiveAction(id: number) {
   const userId = await requireUserId();
-  const current = db
-    .select({ isActive: subscriptions.isActive })
-    .from(subscriptions)
-    .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId)))
-    .get();
+  const current = getOwnedSubscription(id, userId);
 
   if (!current) return;
 
@@ -123,19 +107,7 @@ export async function toggleSubscriptionActiveAction(id: number) {
 
 export async function markAsPaidAction(id: number) {
   const userId = await requireUserId();
-  const current = db
-    .select({
-      nextBillingDate: subscriptions.nextBillingDate,
-      billingCycle: subscriptions.billingCycle,
-      customIntervalDays: subscriptions.customIntervalDays,
-      isTrial: subscriptions.isTrial,
-      amount: subscriptions.amount,
-      currency: subscriptions.currency,
-      splitCount: subscriptions.splitCount,
-    })
-    .from(subscriptions)
-    .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId)))
-    .get();
+  const current = getOwnedSubscription(id, userId);
 
   if (!current) return;
 
@@ -154,7 +126,7 @@ export async function markAsPaidAction(id: number) {
     .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId)))
     .run();
 
-  const splitCount = current.splitCount > 0 ? current.splitCount : 1;
+  const splitCount = normalizeSplitCount(current.splitCount);
   recordPayment(id, current.amount / splitCount, current.currency, `${current.nextBillingDate}T00:00:00.000Z`);
 
   revalidateSubscriptionPaths();
@@ -172,11 +144,7 @@ export async function getSubscriptionHistoryAction(
   id: number
 ): Promise<{ prices: PriceHistoryEntry[]; statuses: StatusHistoryEntry[]; payments: PaymentLogEntry[] }> {
   const userId = await requireUserId();
-  const owns = db
-    .select({ id: subscriptions.id })
-    .from(subscriptions)
-    .where(and(eq(subscriptions.id, id), eq(subscriptions.userId, userId)))
-    .get();
+  const owns = getOwnedSubscription(id, userId);
 
   if (!owns) return { prices: [], statuses: [], payments: [] };
   return { prices: getPriceHistory(id), statuses: getStatusHistory(id), payments: getPaymentLog(id) };
