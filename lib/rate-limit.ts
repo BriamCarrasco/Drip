@@ -7,8 +7,25 @@ type Attempt = {
 const MAX_ATTEMPTS = 5;
 const WINDOW_MS = 15 * 60 * 1000;
 const LOCK_MS = 15 * 60 * 1000;
+const MAX_TRACKED_KEYS = 1000;
 
 const attempts = new Map<string, Attempt>();
+
+function isStale(entry: Attempt, now: number): boolean {
+  const lockExpired = !entry.lockedUntil || entry.lockedUntil <= now;
+  const windowExpired = now - entry.firstAttemptAt > WINDOW_MS;
+  return lockExpired && windowExpired;
+}
+
+function pruneStaleEntries(now: number): void {
+  for (const [key, entry] of attempts) {
+    if (isStale(entry, now)) attempts.delete(key);
+  }
+}
+
+export function _getTrackedKeyCountForTests(): number {
+  return attempts.size;
+}
 
 export function getLockRemainingMs(key: string): number {
   const entry = attempts.get(key);
@@ -24,6 +41,8 @@ export function getLockRemainingMs(key: string): number {
 
 export function registerFailedAttempt(key: string): void {
   const now = Date.now();
+  if (attempts.size > MAX_TRACKED_KEYS) pruneStaleEntries(now);
+
   const entry = attempts.get(key);
 
   if (!entry || now - entry.firstAttemptAt > WINDOW_MS) {

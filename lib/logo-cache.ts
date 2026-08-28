@@ -1,9 +1,24 @@
 import { createHash } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import { Agent } from "undici";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { logoCache } from "@/drizzle/schema";
+
+type PinnedAddress = { address: string; family: 4 | 6 };
+
+type FetchWithDispatcher = (
+  input: string | URL,
+  init?: RequestInit & { dispatcher?: Agent }
+) => Promise<Response>;
+
+function fetchWithDispatcher(
+  input: string | URL,
+  init?: RequestInit & { dispatcher?: Agent }
+): Promise<Response> {
+  return (fetch as unknown as FetchWithDispatcher)(input, init);
+}
 
 const MAX_BYTES = 512 * 1024;
 const FETCH_TIMEOUT_MS = 8000;
@@ -46,23 +61,25 @@ function isPrivateIpv6(ip: string): boolean {
   return false;
 }
 
-async function resolvesToPublicAddress(hostname: string): Promise<boolean> {
+async function resolvePublicAddresses(hostname: string): Promise<PinnedAddress[] | null> {
   const literal = isIP(hostname);
-  if (literal === 4) return !isPrivateIpv4(hostname);
-  if (literal === 6) return !isPrivateIpv6(hostname);
+  if (literal === 4) return isPrivateIpv4(hostname) ? null : [{ address: hostname, family: 4 }];
+  if (literal === 6) return isPrivateIpv6(hostname) ? null : [{ address: hostname, family: 6 }];
 
   try {
     const addresses = await lookup(hostname, { all: true });
-    if (addresses.length === 0) return false;
-    return addresses.every(({ address, family }) =>
+    if (addresses.length === 0) return null;
+    const allPublic = addresses.every(({ address, family }) =>
       family === 4 ? !isPrivateIpv4(address) : !isPrivateIpv6(address)
     );
+    if (!allPublic) return null;
+    return addresses.map(({ address, family }) => ({ address, family: family as 4 | 6 }));
   } catch {
-    return false;
+    return null;
   }
 }
 
-async function assertSafeUrl(rawUrl: string): Promise<URL> {
+async function assertSafeUrl(rawUrl: string): Promise<{ url: URL; addresses: PinnedAddress[] }> {
   let parsed: URL;
   try {
     parsed = new URL(rawUrl);
@@ -74,11 +91,12 @@ async function assertSafeUrl(rawUrl: string): Promise<URL> {
     throw new Error("Solo se permiten URLs http o https.");
   }
 
-  if (!(await resolvesToPublicAddress(parsed.hostname))) {
+  const addresses = await resolvePublicAddresses(parsed.hostname);
+  if (!addresses) {
     throw new Error("No se permiten direcciones de red internas.");
   }
 
-  return parsed;
+  return { url: parsed, addresses };
 }
 
 export type FetchedLogo = { contentType: string; data: Buffer };
@@ -87,41 +105,54 @@ async function fetchImage(rawUrl: string): Promise<FetchedLogo> {
   let currentUrl = rawUrl;
 
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    const safeUrl = await assertSafeUrl(currentUrl);
+    const { url: safeUrl, addresses } = await assertSafeUrl(currentUrl);
 
-    const response = await fetch(safeUrl, {
-      redirect: "manual",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      headers: { Accept: "image/*" },
+    const pinnedDispatcher = new Agent({
+      connect: {
+        lookup: (_hostname, _options, callback) => {
+          callback(null, addresses);
+        },
+      },
     });
 
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get("location");
-      if (!location) throw new Error("Redirección inválida.");
-      currentUrl = new URL(location, safeUrl).toString();
-      continue;
-    }
+    try {
+      const response = await fetchWithDispatcher(safeUrl, {
+        redirect: "manual",
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+        headers: { Accept: "image/*" },
+        dispatcher: pinnedDispatcher,
+      });
 
-    if (!response.ok) {
-      throw new Error(`El servidor del logo respondió ${response.status}.`);
-    }
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        if (!location) throw new Error("Redirección inválida.");
+        currentUrl = new URL(location, safeUrl).toString();
+        continue;
+      }
 
-    const contentType = (response.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
-    if (!allowedContentTypes.includes(contentType)) {
-      throw new Error("La URL no apunta a una imagen.");
-    }
+      if (!response.ok) {
+        throw new Error(`El servidor del logo respondió ${response.status}.`);
+      }
 
-    const declaredLength = Number(response.headers.get("content-length") ?? "0");
-    if (declaredLength > MAX_BYTES) {
-      throw new Error("La imagen es demasiado grande.");
-    }
+      const contentType = (response.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+      if (!allowedContentTypes.includes(contentType)) {
+        throw new Error("La URL no apunta a una imagen.");
+      }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.byteLength > MAX_BYTES) {
-      throw new Error("La imagen es demasiado grande.");
-    }
+      const declaredLength = Number(response.headers.get("content-length") ?? "0");
+      if (declaredLength > MAX_BYTES) {
+        throw new Error("La imagen es demasiado grande.");
+      }
 
-    return { contentType, data: buffer };
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (buffer.byteLength > MAX_BYTES) {
+        throw new Error("La imagen es demasiado grande.");
+      }
+
+      return { contentType, data: buffer };
+    } finally {
+      await pinnedDispatcher.close();
+    }
   }
 
   throw new Error("Demasiadas redirecciones.");
