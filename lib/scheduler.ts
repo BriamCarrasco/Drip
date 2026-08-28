@@ -70,7 +70,7 @@ async function checkMonthlyBudgets(subscriptions: SubscriptionRow[], today: stri
 
     const ok = await sendNotification({
       url: budgetSettings.defaultAppriseUrl,
-      title: "Suscripciones — Presupuesto mensual superado",
+      title: "D(r)ip — Presupuesto mensual superado",
       body: `Tus suscripciones activas ya suman ${formatMoney(combined, budgetSettings.defaultCurrency)} al mes, por sobre tu presupuesto de ${formatMoney(budgetSettings.monthlyBudget, budgetSettings.defaultCurrency)}.`,
     });
 
@@ -122,7 +122,7 @@ export async function runDailyCheck(): Promise<{
 
     const ok = await sendNotification({
       url: appriseUrl,
-      title: `Suscripciones — ${sub.name}`,
+      title: `D(r)ip — ${sub.name}`,
       body,
     });
 

@@ -1,4 +1,6 @@
-# Gestor de Suscripciones
+# D(r)ip
+
+*dip / drip* — el goteo lento de plata que se va en cargos recurrentes.
 
 Aplicación **autohospedada** (self-hosted) para llevar el control de tus suscripciones:
 cuánto pagás, cuándo se cobra cada una y cómo fue cambiando el precio con el tiempo.
@@ -49,14 +51,14 @@ Requisitos: Docker y Docker Compose.
 5. Abre [http://localhost:3000](http://localhost:3000), crea tu usuario y empieza a
    registrar suscripciones.
 
-Los datos quedan en `./data/subscriptions.db` en la carpeta del proyecto (montado como
+Los datos quedan en `./data/drip.db` en la carpeta del proyecto (montado como
 volumen), así que sobreviven a reinicios y actualizaciones del contenedor.
 
 ### Variables de entorno
 
 | Variable              | Descripción                                                                 | Default                          |
 | --------------------- | ---------------------------------------------------------------------------- | --------------------------------- |
-| `DATABASE_URL`        | Ruta del archivo SQLite.                                                     | `file:./data/subscriptions.db`   |
+| `DATABASE_URL`        | Ruta del archivo SQLite.                                                     | `file:./data/drip.db`            |
 | `AUTH_SECRET`         | Secreto usado por Auth.js para firmar sesiones. **Obligatorio en producción.** | —                                 |
 | `DEFAULT_APPRISE_URL` | URL de Apprise usada como canal de notificación por defecto (opcional).      | vacío                             |
 | `REGISTRATION_ENABLED`| Permite crear cuentas nuevas desde `/register`. Ponelo en `false` para cerrar el registro una vez creadas las cuentas. | `true`            |
@@ -140,7 +142,7 @@ ejecutar scripts.
 
 No existe un flujo de "olvidé mi contraseña", ya que la app no usa correo electrónico ni
 depende de ningún servicio externo para enviar mails. Si pierdes el acceso a una cuenta,
-puedes recuperarla entrando directamente a la base de datos SQLite (`./data/subscriptions.db`)
+puedes recuperarla entrando directamente a la base de datos SQLite (`./data/drip.db`)
 con cualquier cliente de SQLite y:
 
 - Borrando la fila del usuario en la tabla `users` (perderás sus suscripciones), o

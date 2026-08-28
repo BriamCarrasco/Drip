@@ -54,7 +54,7 @@ export function TopBar({ username }: { username: string }) {
         <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg bg-accent">
           <LogoMark />
         </div>
-        <span className="hidden font-heading text-base font-semibold sm:inline">Suscripciones</span>
+        <span className="hidden font-heading text-base font-semibold sm:inline">D(r)ip</span>
       </div>
 
       <div

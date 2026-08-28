@@ -1,6 +1,10 @@
+name: drip
+
 services:
   app:
     build: .
+    image: drip
+    container_name: drip
     ports:
       - "3000:3000"
     env_file:

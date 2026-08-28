@@ -17,7 +17,7 @@ const workSans = Work_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Gestor de Suscripciones",
+  title: "D(r)ip",
   description: "Control autohospedado de tus suscripciones y próximos cobros",
 };
 

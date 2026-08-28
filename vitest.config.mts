@@ -21,6 +21,10 @@ export default defineConfig({
       all: true,
       include: ["app/**/*.{ts,tsx}", "components/**/*.{ts,tsx}", "lib/**/*.{ts,tsx}"],
       exclude: ["**/*.test.ts", "lib/test-helpers.ts"],
+      thresholds: {
+        lines: 90,
+        statements: 90,
+      },
     },
   },
 });

@@ -5,7 +5,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import * as schema from "@/drizzle/schema";
 
-const databaseUrl = process.env.DATABASE_URL ?? "file:./data/subscriptions.db";
+const databaseUrl = process.env.DATABASE_URL ?? "file:./data/drip.db";
 const filePath = databaseUrl.replace(/^file:/, "");
 
 fs.mkdirSync(path.dirname(path.resolve(filePath)), { recursive: true });

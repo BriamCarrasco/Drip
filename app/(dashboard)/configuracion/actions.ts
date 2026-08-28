@@ -180,7 +180,7 @@ export async function sendTestNotificationAction(
 
   const ok = await sendNotification({
     url,
-    title: "Suscripciones — Notificación de prueba",
+    title: "D(r)ip — Notificación de prueba",
     body: "Si ves esto, tu canal de notificaciones está funcionando.",
   });
 
