@@ -4,6 +4,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { subscriptions } from "@/drizzle/schema";
+import { isSafeAppriseUrl } from "@/lib/apprise-url";
 import { requireUserId } from "@/lib/require-user-id";
 import { revalidateSubscriptionPaths } from "@/lib/revalidate";
 import { getPriceHistory, recordPriceChange, type PriceHistoryEntry } from "@/lib/price-history";
@@ -13,9 +14,14 @@ import { advanceDate } from "@/lib/calendar";
 import { normalizeSplitCount } from "@/lib/subscription-calculations";
 
 const subscriptionInputSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().optional(),
-  logoUrl: z.string().optional(),
+  name: z.string().min(1).max(200),
+  description: z.string().max(2000).optional(),
+  logoUrl: z
+    .string()
+    .optional()
+    .refine((value) => !value || /^https?:\/\//i.test(value), {
+      message: "El logo debe ser una URL http o https.",
+    }),
   amount: z.number().nonnegative(),
   currency: z.enum(["CLP", "USD"]),
   billingCycle: z.enum(["weekly", "monthly", "yearly", "custom_days"]),
@@ -28,8 +34,14 @@ const subscriptionInputSchema = z.object({
       return !Number.isNaN(date.getTime()) && date.getFullYear() >= 1970 && date.getFullYear() <= 9999;
     }, "La fecha ingresada no es válida."),
   category: z.string().min(1),
-  notificationDaysBefore: z.number().int().nonnegative(),
-  appriseUrl: z.string().optional(),
+  notificationDaysBefore: z.number().int().nonnegative().max(365),
+  appriseUrl: z
+    .string()
+    .optional()
+    .refine((value) => !value || isSafeAppriseUrl(value), {
+      message:
+        "La URL de notificación no es válida o apunta a una red interna. Usá el esquema del servicio (por ejemplo discord://, tgram://).",
+    }),
   isActive: z.boolean(),
   isTrial: z.boolean(),
   splitCount: z.number().int().min(1).max(20),

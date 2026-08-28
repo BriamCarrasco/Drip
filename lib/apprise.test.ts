@@ -27,7 +27,7 @@ describe("sendNotification", () => {
     expect(ok).toBe(true);
     expect(execFileMock).toHaveBeenCalledWith(
       "apprise",
-      ["-t", "Hola", "-b", "Mundo", "tgram://token/chat"],
+      ["-t", "Hola", "-b", "Mundo", "--", "tgram://token/chat"],
       expect.objectContaining({ timeout: expect.any(Number) }),
       expect.any(Function)
     );
@@ -40,8 +40,30 @@ describe("sendNotification", () => {
       return {} as ReturnType<typeof execFile>;
     }) as typeof execFile);
 
-    const ok = await sendNotification({ url: "bad://", title: "Hola", body: "Mundo" });
+    const ok = await sendNotification({ url: "tgram://invalid-token", title: "Hola", body: "Mundo" });
 
     expect(ok).toBe(false);
+  });
+
+  it("resolves false without spawning apprise when the url is unsafe", async () => {
+    const ok = await sendNotification({
+      url: "json://169.254.169.254/latest",
+      title: "Hola",
+      body: "Mundo",
+    });
+
+    expect(ok).toBe(false);
+    expect(execFileMock).not.toHaveBeenCalled();
+  });
+
+  it("resolves false without spawning apprise when the url looks like a CLI flag", async () => {
+    const ok = await sendNotification({
+      url: "--plugin-path=/tmp/evil",
+      title: "Hola",
+      body: "Mundo",
+    });
+
+    expect(ok).toBe(false);
+    expect(execFileMock).not.toHaveBeenCalled();
   });
 });

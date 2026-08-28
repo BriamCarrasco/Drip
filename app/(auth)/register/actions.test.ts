@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthError } from "next-auth";
 import { db } from "@/lib/db";
 import { users } from "@/drizzle/schema";
+import { _resetAttemptsForTests } from "@/lib/rate-limit";
 
 vi.mock("@/auth", () => ({ signIn: vi.fn() }));
 
@@ -19,6 +20,12 @@ function formData(fields: Record<string, string>): FormData {
 beforeEach(() => {
   db.delete(users).run();
   signInMock.mockReset();
+  _resetAttemptsForTests();
+  delete process.env.REGISTRATION_ENABLED;
+});
+
+afterEach(() => {
+  delete process.env.REGISTRATION_ENABLED;
 });
 
 describe("registerAction", () => {
@@ -88,5 +95,36 @@ describe("registerAction", () => {
     await expect(
       registerAction({}, formData({ username: "alice", password: "secret123", confirmPassword: "secret123" }))
     ).rejects.toThrow("NEXT_REDIRECT");
+  });
+
+  it("refuses to register when REGISTRATION_ENABLED is false", async () => {
+    process.env.REGISTRATION_ENABLED = "false";
+
+    const result = await registerAction(
+      {},
+      formData({ username: "alice", password: "secret123", confirmPassword: "secret123" })
+    );
+
+    expect(result.error).toMatch(/deshabilitado/);
+    expect(db.select().from(users).all()).toHaveLength(0);
+    expect(signInMock).not.toHaveBeenCalled();
+  });
+
+  it("rate-limits repeated registration attempts from the same client", async () => {
+    signInMock.mockResolvedValue(undefined);
+
+    for (let i = 0; i < 5; i++) {
+      await registerAction(
+        {},
+        formData({ username: `user${i}`, password: "secret123", confirmPassword: "secret123" })
+      );
+    }
+
+    const result = await registerAction(
+      {},
+      formData({ username: "blocked", password: "secret123", confirmPassword: "secret123" })
+    );
+
+    expect(result.error).toMatch(/Demasiados intentos de registro/);
   });
 });

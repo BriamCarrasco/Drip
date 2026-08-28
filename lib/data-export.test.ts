@@ -97,6 +97,66 @@ describe("parseImportPayload", () => {
     expect(parseImportPayload({ version: 2, subscriptions: [] }).success).toBe(false);
   });
 
+  it("rejects an unknown currency", () => {
+    const result = parseImportPayload({
+      version: 1,
+      subscriptions: [
+        {
+          name: "Netflix",
+          amount: 9990,
+          currency: "EUR",
+          billingCycle: "monthly",
+          nextBillingDate: "2026-09-05",
+          category: "Streaming",
+          notificationDaysBefore: 3,
+          isActive: true,
+          isTrial: false,
+        },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an unsafe apprise url", () => {
+    const result = parseImportPayload({
+      version: 1,
+      subscriptions: [
+        {
+          name: "Netflix",
+          amount: 9990,
+          currency: "CLP",
+          billingCycle: "monthly",
+          nextBillingDate: "2026-09-05",
+          category: "Streaming",
+          notificationDaysBefore: 3,
+          appriseUrl: "json://169.254.169.254/",
+          isActive: true,
+          isTrial: false,
+        },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects more subscriptions than the import cap allows", () => {
+    const one = {
+      name: "X",
+      amount: 1,
+      currency: "CLP",
+      billingCycle: "monthly" as const,
+      nextBillingDate: "2026-09-05",
+      category: "Streaming",
+      notificationDaysBefore: 3,
+      isActive: true,
+      isTrial: false,
+    };
+    const result = parseImportPayload({
+      version: 1,
+      subscriptions: Array.from({ length: 1001 }, () => ({ ...one })),
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("rejects a payload with an invalid date format", () => {
     const result = parseImportPayload({
       version: 1,

@@ -2,6 +2,11 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { priceHistory, settings, statusHistory, subscriptions, type BillingCycle } from "@/drizzle/schema";
+import { isSafeAppriseUrl } from "@/lib/apprise-url";
+
+const MAX_IMPORT_SUBSCRIPTIONS = 1000;
+const MAX_IMPORT_PRICE_HISTORY = 1000;
+const TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}/;
 
 const EXPORT_VERSION = 1;
 
@@ -76,35 +81,49 @@ export function buildExportForUser(userId: number): DataExport {
   };
 }
 
+const currencySchema = z.enum(["CLP", "USD"]);
+
 const importSchema = z.object({
   version: z.literal(1),
-  subscriptions: z.array(
-    z.object({
-      name: z.string().min(1),
-      description: z.string().nullable().optional(),
-      logoUrl: z.string().nullable().optional(),
-      amount: z.number().nonnegative(),
-      currency: z.string().min(1),
-      billingCycle: z.enum(["weekly", "monthly", "yearly", "custom_days"]),
-      customIntervalDays: z.number().int().positive().nullable().optional(),
-      nextBillingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      category: z.string().min(1),
-      notificationDaysBefore: z.number().int().nonnegative(),
-      appriseUrl: z.string().nullable().optional(),
-      isActive: z.boolean(),
-      isTrial: z.boolean(),
-      splitCount: z.number().int().min(1).max(20).optional(),
-      priceHistory: z
-        .array(
-          z.object({
-            amount: z.number().nonnegative(),
-            currency: z.string().min(1),
-            changedAt: z.string().min(1),
-          })
-        )
-        .optional(),
-    })
-  ),
+  subscriptions: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(200),
+        description: z.string().max(2000).nullable().optional(),
+        logoUrl: z
+          .string()
+          .max(2048)
+          .refine((value) => value === "" || /^https?:\/\//i.test(value), "URL de logo no válida.")
+          .nullable()
+          .optional(),
+        amount: z.number().nonnegative().finite(),
+        currency: currencySchema,
+        billingCycle: z.enum(["weekly", "monthly", "yearly", "custom_days"]),
+        customIntervalDays: z.number().int().positive().max(3650).nullable().optional(),
+        nextBillingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        category: z.string().min(1).max(100),
+        notificationDaysBefore: z.number().int().nonnegative().max(365),
+        appriseUrl: z
+          .string()
+          .refine((value) => value === "" || isSafeAppriseUrl(value), "URL de notificación no válida.")
+          .nullable()
+          .optional(),
+        isActive: z.boolean(),
+        isTrial: z.boolean(),
+        splitCount: z.number().int().min(1).max(20).optional(),
+        priceHistory: z
+          .array(
+            z.object({
+              amount: z.number().nonnegative().finite(),
+              currency: currencySchema,
+              changedAt: z.string().regex(TIMESTAMP_RE),
+            })
+          )
+          .max(MAX_IMPORT_PRICE_HISTORY)
+          .optional(),
+      })
+    )
+    .max(MAX_IMPORT_SUBSCRIPTIONS),
 });
 
 export function parseImportPayload(payload: unknown) {

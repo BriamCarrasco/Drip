@@ -43,6 +43,7 @@ beforeEach(() => {
   db.delete(settings).run();
   db.delete(users).run();
   authMock.mockReset();
+  authMock.mockResolvedValue(sessionFor(1));
   signOutMock.mockReset();
   sendNotificationMock.mockReset();
 });
@@ -133,15 +134,27 @@ describe("fetchTelegramChatIdAction", () => {
     expect(result.error).toMatch(/Ingresa el token/);
   });
 
+  it("rejects a token with an invalid format", async () => {
+    const result = await fetchTelegramChatIdAction({}, formData({ botToken: "not-a-token" }));
+    expect(result.error).toMatch(/formato válido/);
+  });
+
+  it("requires authentication", async () => {
+    authMock.mockResolvedValue(null);
+    await expect(
+      fetchTelegramChatIdAction({}, formData({ botToken: "123456:ABC-def_ghi" }))
+    ).rejects.toThrow("No autenticado");
+  });
+
   it("reports a rejected token", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ json: async () => ({ ok: false }) } as Response));
-    const result = await fetchTelegramChatIdAction({}, formData({ botToken: "abc" }));
+    const result = await fetchTelegramChatIdAction({}, formData({ botToken: "123456:ABC-def_ghi" }));
     expect(result.error).toMatch(/rechazó el token/);
   });
 
   it("reports when there are no updates yet", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ json: async () => ({ ok: true, result: [] }) } as Response));
-    const result = await fetchTelegramChatIdAction({}, formData({ botToken: "abc" }));
+    const result = await fetchTelegramChatIdAction({}, formData({ botToken: "123456:ABC-def_ghi" }));
     expect(result.error).toMatch(/No encontramos mensajes/);
   });
 
@@ -152,7 +165,7 @@ describe("fetchTelegramChatIdAction", () => {
         json: async () => ({ ok: true, result: [{ message: { chat: { id: 123 } } }] }),
       } as Response)
     );
-    const result = await fetchTelegramChatIdAction({}, formData({ botToken: "abc" }));
+    const result = await fetchTelegramChatIdAction({}, formData({ botToken: "123456:ABC-def_ghi" }));
     expect(result.chatId).toBe("123");
   });
 
@@ -163,13 +176,13 @@ describe("fetchTelegramChatIdAction", () => {
         json: async () => ({ ok: true, result: [{ channel_post: { chat: { id: 456 } } }] }),
       } as Response)
     );
-    const result = await fetchTelegramChatIdAction({}, formData({ botToken: "abc" }));
+    const result = await fetchTelegramChatIdAction({}, formData({ botToken: "123456:ABC-def_ghi" }));
     expect(result.chatId).toBe("456");
   });
 
   it("returns a connection error when the request throws", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("timeout")));
-    const result = await fetchTelegramChatIdAction({}, formData({ botToken: "abc" }));
+    const result = await fetchTelegramChatIdAction({}, formData({ botToken: "123456:ABC-def_ghi" }));
     expect(result.error).toMatch(/No se pudo conectar con Telegram/);
   });
 });
@@ -184,6 +197,15 @@ describe("sendTestNotificationAction", () => {
     sendNotificationMock.mockResolvedValue(true);
     const result = await sendTestNotificationAction({}, formData({ defaultAppriseUrl: "tgram://a/b" }));
     expect(result.success).toBe(true);
+  });
+
+  it("rejects a generic http webhook url without calling apprise", async () => {
+    const result = await sendTestNotificationAction(
+      {},
+      formData({ defaultAppriseUrl: "json://169.254.169.254/latest/meta-data" })
+    );
+    expect(result.error).toBeDefined();
+    expect(sendNotificationMock).not.toHaveBeenCalled();
   });
 
   it("returns an error when the notification fails to send", async () => {

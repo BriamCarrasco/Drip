@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthError } from "next-auth";
-import { clearAttempts, registerFailedAttempt } from "@/lib/rate-limit";
+import { _resetAttemptsForTests, registerFailedAttempt } from "@/lib/rate-limit";
 
 vi.mock("@/auth", () => ({ signIn: vi.fn() }));
 
@@ -17,7 +17,7 @@ function formData(fields: Record<string, string>): FormData {
 
 beforeEach(() => {
   signInMock.mockReset();
-  clearAttempts("alice");
+  _resetAttemptsForTests();
 });
 
 describe("loginAction", () => {
@@ -46,7 +46,7 @@ describe("loginAction", () => {
   });
 
   it("blocks the attempt without calling signIn when the user is locked out", async () => {
-    for (let i = 0; i < 5; i++) registerFailedAttempt("alice");
+    for (let i = 0; i < 5; i++) registerFailedAttempt("user:alice");
 
     const result = await loginAction({}, formData({ username: "alice", password: "secret123" }));
 

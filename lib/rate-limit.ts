@@ -27,6 +27,10 @@ export function _getTrackedKeyCountForTests(): number {
   return attempts.size;
 }
 
+export function _resetAttemptsForTests(): void {
+  attempts.clear();
+}
+
 export function getLockRemainingMs(key: string): number {
   const entry = attempts.get(key);
   if (!entry?.lockedUntil) return 0;

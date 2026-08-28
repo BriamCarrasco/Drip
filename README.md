@@ -59,14 +59,16 @@ volumen), así que sobreviven a reinicios y actualizaciones del contenedor.
 | `DATABASE_URL`        | Ruta del archivo SQLite.                                                     | `file:./data/subscriptions.db`   |
 | `AUTH_SECRET`         | Secreto usado por Auth.js para firmar sesiones. **Obligatorio en producción.** | —                                 |
 | `DEFAULT_APPRISE_URL` | URL de Apprise usada como canal de notificación por defecto (opcional).      | vacío                             |
+| `REGISTRATION_ENABLED`| Permite crear cuentas nuevas desde `/register`. Ponelo en `false` para cerrar el registro una vez creadas las cuentas. | `true`            |
 | `TZ`                  | Zona horaria usada por el cron diario de notificaciones.                    | `America/Santiago`               |
 
 ## Multiusuario
 
 La app no es un SaaS ni tiene un rol de administrador: el soporte multiusuario existe
 para que distintas personas que comparten el mismo equipo puedan tener cada una su
-propia lista de suscripciones. El registro es libre (usuario + contraseña, sin correo
-electrónico) — si vas a exponer la instancia fuera de tu red local, ponla detrás de tu
+propia lista de suscripciones. El registro es libre por defecto (usuario + contraseña,
+sin correo electrónico); podés cerrarlo con `REGISTRATION_ENABLED=false` después de crear
+las cuentas. Si vas a exponer la instancia fuera de tu red local, ponla detrás de tu
 propio proxy/VPN o algún control de acceso adicional.
 
 ## Conversión de moneda (opcional)

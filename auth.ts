@@ -1,11 +1,15 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { eq } from "drizzle-orm";
-import bcrypt from "bcryptjs";
-import { db } from "@/lib/db";
-import { users } from "@/drizzle/schema";
-import { clearAttempts, registerFailedAttempt } from "@/lib/rate-limit";
+import { verifyCredentials } from "@/lib/credentials";
 import authConfig from "@/auth.config";
+
+function clientIpFromRequest(request: Request): string | null {
+  const headers = request?.headers;
+  if (!headers) return null;
+  const forwarded = headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return headers.get("x-real-ip")?.trim() ?? null;
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -15,27 +19,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         username: {},
         password: {},
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const username = credentials?.username;
         const password = credentials?.password;
         if (typeof username !== "string" || typeof password !== "string") return null;
 
-        const key = username.toLowerCase();
-
-        const user = db.select().from(users).where(eq(users.username, username)).get();
-        if (!user) {
-          registerFailedAttempt(key);
-          return null;
-        }
-
-        const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) {
-          registerFailedAttempt(key);
-          return null;
-        }
-
-        clearAttempts(key);
-        return { id: String(user.id), username: user.username };
+        return verifyCredentials(username, password, clientIpFromRequest(request));
       },
     }),
   ],

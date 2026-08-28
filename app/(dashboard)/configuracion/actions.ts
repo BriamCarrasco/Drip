@@ -9,6 +9,7 @@ import { settings, users } from "@/drizzle/schema";
 import { requireUserId } from "@/lib/require-user-id";
 import { revalidateSettingsPaths } from "@/lib/revalidate";
 import { sendNotification } from "@/lib/apprise";
+import { isSafeAppriseUrl } from "@/lib/apprise-url";
 import { refreshUsdClpRate } from "@/lib/exchange-rate";
 
 export async function signOutAction() {
@@ -16,7 +17,13 @@ export async function signOutAction() {
 }
 
 const settingsSchema = z.object({
-  defaultAppriseUrl: z.string().optional(),
+  defaultAppriseUrl: z
+    .string()
+    .optional()
+    .refine((value) => !value || isSafeAppriseUrl(value), {
+      message:
+        "La URL de notificación no es válida o apunta a una red interna. Usá el esquema del servicio (por ejemplo discord://, tgram://).",
+    }),
   defaultCurrency: z.enum(["CLP", "USD"]),
   exchangeRateMode: z.enum(["manual", "auto"]),
   manualExchangeRate: z
@@ -88,6 +95,8 @@ export type RefreshExchangeRateState = { error?: string; success?: boolean; rate
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function refreshExchangeRateAction(_prevState: RefreshExchangeRateState, _formData: FormData): Promise<RefreshExchangeRateState> {
+  await requireUserId();
+
   const rate = await refreshUsdClpRate();
   if (rate === null) {
     return { error: "No se pudo obtener el tipo de cambio. Revisa tu conexión a internet." };
@@ -103,15 +112,23 @@ export async function fetchTelegramChatIdAction(
   _prevState: TelegramChatIdState,
   formData: FormData
 ): Promise<TelegramChatIdState> {
+  await requireUserId();
+
   const token = formData.get("botToken");
   if (typeof token !== "string" || token.trim().length === 0) {
     return { error: "Ingresa el token del bot primero." };
   }
 
+  const trimmedToken = token.trim();
+  if (!/^\d+:[A-Za-z0-9_-]+$/.test(trimmedToken)) {
+    return { error: "El token del bot no tiene un formato válido." };
+  }
+
   try {
-    const response = await fetch(`https://api.telegram.org/bot${token.trim()}/getUpdates`, {
-      signal: AbortSignal.timeout(8000),
-    });
+    const response = await fetch(
+      `https://api.telegram.org/bot${trimmedToken}/getUpdates`,
+      { signal: AbortSignal.timeout(8000) }
+    );
     const data = await response.json();
 
     if (!data.ok) {
@@ -147,9 +164,18 @@ export async function sendTestNotificationAction(
   _prevState: TestNotificationState,
   formData: FormData
 ): Promise<TestNotificationState> {
+  await requireUserId();
+
   const url = formData.get("defaultAppriseUrl");
   if (typeof url !== "string" || url.trim().length === 0) {
     return { error: "Ingresa una URL de Apprise antes de probarla." };
+  }
+
+  if (!isSafeAppriseUrl(url)) {
+    return {
+      error:
+        "La URL de notificación no es válida o apunta a una red interna. Usá el esquema del servicio (por ejemplo discord://, tgram://).",
+    };
   }
 
   const ok = await sendNotification({
@@ -164,7 +190,10 @@ export async function sendTestNotificationAction(
 const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, "Ingresa tu contraseña actual."),
-    newPassword: z.string().min(8, "La nueva contraseña debe tener al menos 8 caracteres."),
+    newPassword: z
+      .string()
+      .min(8, "La nueva contraseña debe tener al menos 8 caracteres.")
+      .max(72, "La nueva contraseña debe tener como máximo 72 caracteres."),
     confirmNewPassword: z.string(),
   })
   .refine((data) => data.newPassword === data.confirmNewPassword, {
@@ -195,7 +224,7 @@ export async function changePasswordAction(
   const valid = await bcrypt.compare(parsed.data.currentPassword, user.passwordHash);
   if (!valid) return { error: "La contraseña actual no es correcta." };
 
-  const newHash = await bcrypt.hash(parsed.data.newPassword, 10);
+  const newHash = await bcrypt.hash(parsed.data.newPassword, 12);
   db.update(users).set({ passwordHash: newHash }).where(eq(users.id, userId)).run();
 
   return { success: true };

@@ -73,6 +73,8 @@ async function findHistoricalUsdClpRate(dateIso: string): Promise<number | null>
 const HISTORICAL_LOOKUP_BUDGET_MS = 6000;
 
 export async function getOrFetchHistoricalUsdClpRate(dateIso: string): Promise<number | null> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return null;
+
   const cached = db
     .select()
     .from(historicalExchangeRates)
