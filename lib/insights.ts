@@ -1,8 +1,8 @@
 import type { BillingCycle } from "@/drizzle/schema";
 import type { SubscriptionRow } from "@/lib/subscriptions";
 import { isActiveAt, monthlyEquivalent, priceAt } from "@/lib/subscription-calculations";
-import { convertToCurrency } from "@/lib/exchange-rate";
-import { totalFromPaymentLog, type PaymentLogEntry } from "@/lib/payment-log";
+import { convertToCurrency } from "@/lib/currency-utils";
+import { totalFromPaymentLog, type PaymentLogEntry } from "@/lib/payment-log-utils";
 import type { CurrencyTotal } from "@/lib/currency-summary";
 
 export type PriceEntry = { amount: number; currency: string; changedAt: string };

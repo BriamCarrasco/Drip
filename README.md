@@ -163,6 +163,8 @@ Otros comandos útiles:
 ```bash
 npm run lint          # ESLint
 npm run build         # build de producción
+npm run test          # pruebas unitarias (Vitest)
+npm run test:coverage # pruebas + reporte de cobertura
 npm run db:generate   # genera una nueva migración a partir de drizzle/schema.ts
 ```
 

@@ -36,7 +36,7 @@ export function parseEmailAppriseUrl(url: string): {
   smtpPort: string;
   recipient: string;
 } | null {
-  const match = url.trim().match(/^mailtos?:\/\/([^:]+):([^@]+)@([^/]+)(\/.*)?$/);
+  const match = url.trim().match(/^mail(?:to|ots):\/\/([^:]+):([^@]+)@([^/]+)(\/.*)?$/);
   if (!match) return null;
 
   const [, rawUser, rawPass, hostPart, recipientPart] = match;

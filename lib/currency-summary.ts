@@ -1,4 +1,4 @@
-import { convertToCurrency } from "@/lib/exchange-rate";
+import { convertToCurrency } from "@/lib/currency-utils";
 import { formatMoney } from "@/lib/format";
 
 export type CurrencyTotal = { currency: string; total: number };

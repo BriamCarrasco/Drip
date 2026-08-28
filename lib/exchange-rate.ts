@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { exchangeRates, historicalExchangeRates } from "@/drizzle/schema";
 import type { Settings } from "@/lib/settings";
 
+export { convertToCurrency } from "@/lib/currency-utils";
+
 const USD_CLP_PAIR = "USD_CLP";
 const FETCH_URL = "https://mindicador.cl/api/dolar";
 
@@ -97,9 +99,3 @@ export function getEffectiveUsdClpRate(settings: Settings): number | null {
   return settings.manualExchangeRate;
 }
 
-export function convertToCurrency(amount: number, from: string, to: string, usdClpRate: number): number {
-  if (from === to) return amount;
-  if (from === "USD" && to === "CLP") return amount * usdClpRate;
-  if (from === "CLP" && to === "USD") return amount / usdClpRate;
-  return amount;
-}
