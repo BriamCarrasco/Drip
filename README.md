@@ -29,40 +29,79 @@ SQLite local.
 
 Requisitos: Docker y Docker Compose.
 
-1. Clona el repositorio y entra a la carpeta del proyecto.
-2. Copia el archivo de variables de entorno de ejemplo:
+### Opción A — imagen prearmada
 
-   ```bash
-   cp .env.example .env
+1. Creá una carpeta para la app con este `compose.yaml`:
+
+   ```yaml
+   name: drip
+
+   services:
+     app:
+       image: ghcr.io/briamcarrasco/drip:latest
+       container_name: drip
+       pull_policy: always
+       ports:
+         - "3000:3000"
+       env_file:
+         - .env
+       volumes:
+         - drip-data:/app/data
+       restart: unless-stopped
+
+   volumes:
+     drip-data:
    ```
 
-3. Genera un `AUTH_SECRET` único y pégalo en `.env` (usado para firmar las sesiones):
+2. Creá un `.env` al lado, con al menos un `AUTH_SECRET`:
 
    ```bash
-   node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+   echo "AUTH_SECRET=$(openssl rand -base64 33)" > .env
+   echo "REGISTRATION_ENABLED=false" >> .env
+   echo "TZ=America/Santiago" >> .env
    ```
 
-4. Levanta la aplicación:
+3. Levantá:
 
    ```bash
-   docker compose up -d --build
+   docker compose up -d
    ```
 
-5. Abre [http://localhost:3000](http://localhost:3000), crea tu usuario y empieza a
-   registrar suscripciones.
+4. Abrí [http://localhost:3000](http://localhost:3000), creá tu usuario y empezá a
+   registrar suscripciones. Para actualizar más adelante: `docker compose pull && docker compose up -d`.
 
-Los datos quedan en `./data/drip.db` en la carpeta del proyecto (montado como
-volumen), así que sobreviven a reinicios y actualizaciones del contenedor.
+### Opción B — build desde el código
+
+```bash
+git clone https://github.com/BriamCarrasco/Drip.git drip && cd drip
+cp .env.example .env
+sed -i "s|^AUTH_SECRET=.*|AUTH_SECRET=$(openssl rand -base64 33)|" .env
+docker compose up -d --build
+```
+
+### Persistencia
+
+Los datos viven en el volumen `drip-data`, gestionado por Docker: sobreviven a
+`pull`, `up` y actualizaciones del contenedor. Backup:
+
+```bash
+docker run --rm -v drip-data:/data -v "$PWD":/backup alpine \
+  tar czf /backup/drip-$(date +%F).tar.gz -C /data .
+```
+
+Si preferís tener el `.db` como archivo suelto en el host, cambiá `drip-data:/app/data`
+por `./data:/app/data` (y quitá el bloque `volumes:`), y hacé una vez
+`sudo chown -R 1001:1001 ./data` — el contenedor corre como usuario sin privilegios
+(uid 1001) y necesita poder escribir esa carpeta.
 
 ### Variables de entorno
 
-| Variable              | Descripción                                                                 | Default                          |
-| --------------------- | ---------------------------------------------------------------------------- | --------------------------------- |
-| `DATABASE_URL`        | Ruta del archivo SQLite.                                                     | `file:./data/drip.db`            |
-| `AUTH_SECRET`         | Secreto usado por Auth.js para firmar sesiones. **Obligatorio en producción.** | —                                 |
-| `DEFAULT_APPRISE_URL` | URL de Apprise usada como canal de notificación por defecto (opcional).      | vacío                             |
-| `REGISTRATION_ENABLED`| Permite crear cuentas nuevas desde `/register`. Ponelo en `false` para cerrar el registro una vez creadas las cuentas. | `true`            |
-| `TZ`                  | Zona horaria usada por el cron diario de notificaciones.                    | `America/Santiago`               |
+| Variable               | Descripción                                                                                          | Default                |
+| ---------------------- | --------------------------------------------------------------------------------------------------- | ---------------------- |
+| `AUTH_SECRET`          | Secreto que usa Auth.js para firmar las sesiones. **Obligatorio.** Generalo con `openssl rand -base64 33`. | —                      |
+| `REGISTRATION_ENABLED` | Permite crear cuentas nuevas desde `/register`. Ponelo en `false` para cerrar el registro una vez creadas las cuentas. | `true`                 |
+| `TZ`                   | Zona horaria usada por el cron diario de notificaciones.                                             | `America/Santiago`     |
+| `DATABASE_URL`         | Opcional. Ruta del archivo SQLite. En Docker no hace falta tocarlo.                                  | `file:./data/drip.db`  |
 
 ## Multiusuario
 
@@ -142,12 +181,16 @@ ejecutar scripts.
 
 No existe un flujo de "olvidé mi contraseña", ya que la app no usa correo electrónico ni
 depende de ningún servicio externo para enviar mails. Si pierdes el acceso a una cuenta,
-puedes recuperarla entrando directamente a la base de datos SQLite (`./data/drip.db`)
-con cualquier cliente de SQLite y:
+podés operar sobre la base SQLite (`/app/data/drip.db` dentro del contenedor) con las
+dependencias que ya trae la imagen. Por ejemplo, para borrar un usuario (perderás sus
+suscripciones):
 
-- Borrando la fila del usuario en la tabla `users` (perderás sus suscripciones), o
-- Generando un nuevo hash bcrypt para una contraseña conocida y reemplazando el valor de
-  `password_hash` de ese usuario.
+```bash
+docker compose exec app node -e "require('better-sqlite3')('/app/data/drip.db').prepare('DELETE FROM users WHERE username = ?').run('tu_usuario')"
+```
+
+O generá un hash bcrypt nuevo para una contraseña conocida y reemplazá el `password_hash`
+de ese usuario.
 
 ## Desarrollo local
 
@@ -155,7 +198,7 @@ Requisitos: Node.js 22+ y Python 3 (usado por el CLI de Apprise en tiempo de eje
 
 ```bash
 npm install
-cp .env.example .env.local
+echo "AUTH_SECRET=$(openssl rand -base64 33)" > .env.local
 npm run dev
 ```
 
