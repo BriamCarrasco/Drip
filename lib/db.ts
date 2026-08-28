@@ -15,4 +15,6 @@ sqlite.pragma("journal_mode = WAL");
 
 export const db = drizzle(sqlite, { schema });
 
-migrate(db, { migrationsFolder: path.resolve("drizzle/migrations") });
+export function runMigrations(): void {
+  migrate(db, { migrationsFolder: path.resolve("drizzle/migrations") });
+}

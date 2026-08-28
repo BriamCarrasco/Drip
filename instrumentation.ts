@@ -4,6 +4,9 @@ export async function register() {
   const { setDefaultResultOrder } = await import("node:dns");
   setDefaultResultOrder("ipv4first");
 
+  const { runMigrations } = await import("@/lib/db");
+  runMigrations();
+
   const globalForScheduler = globalThis as unknown as { __schedulerStarted?: boolean };
   if (globalForScheduler.__schedulerStarted) return;
   globalForScheduler.__schedulerStarted = true;

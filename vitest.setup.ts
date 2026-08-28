@@ -5,4 +5,7 @@ import { afterEach } from "vitest";
 process.env.DATABASE_URL = "file::memory:";
 process.env.AUTH_SECRET = "test-secret";
 
+const { runMigrations } = await import("@/lib/db");
+runMigrations();
+
 afterEach(cleanup);
